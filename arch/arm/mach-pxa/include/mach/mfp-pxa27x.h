@@ -10,6 +10,12 @@
 
 #include <mach/mfp-pxa2xx.h>
 
+#define GPIO_MD_MASK_NR         0x07f
+#define GPIO_MD_MASK_DIR        0x080
+#define GPIO_MD_MASK_FN         0x300
+#define GPIO_DFLT_LOW           0x400
+#define GPIO_DFLT_HIGH          0x800
+
 /* Note: GPIO3/GPIO4 will be driven by Power I2C when PCFR/PI2C_EN
  * bit is set, regardless of the GPIO configuration
  */
@@ -109,6 +115,7 @@
 #define GPIO54_nPCE_2		MFP_CFG_OUT(GPIO54, AF2, DRIVE_HIGH)
 #define GPIO78_nPCE_2		MFP_CFG_OUT(GPIO78, AF1, DRIVE_HIGH)
 #define GPIO87_nPCE_2		MFP_CFG_IN(GPIO87, AF1)
+#define GPIO105_nPCE_2		MFP_CFG_OUT(GPIO105, AF1, DRIVE_HIGH)
 #define GPIO55_nPREG		MFP_CFG_OUT(GPIO55, AF2, DRIVE_HIGH)
 #define GPIO50_nPIOR		MFP_CFG_OUT(GPIO50, AF2, DRIVE_HIGH)
 #define GPIO51_nPIOW		MFP_CFG_OUT(GPIO51, AF2, DRIVE_HIGH)

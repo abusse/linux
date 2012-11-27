@@ -28,7 +28,7 @@
 
 #include <mach/reset.h>
 #include <mach/gpio.h>
-#include <mach/pxa2xx-gpio.h>
+#include <mach/mfp-pxa27x.h>
 
 #include "generic.h"
 

@@ -27,24 +27,35 @@ endmenu
 endif
 
 config ARCH_GUMSTIX
-	bool "Gumstix XScale 255 boards"
-	select PXA25x
+	bool "Gumstix boards"
 	help
-	  Say Y here if you intend to run this kernel on
-	  Basix, Connex, ws-200ax, ws-400ax systems
-
-choice
-	prompt "Gumstix Carrier/Expansion Board"
+        Say Y here if you intend to run this kernel on a
+	  gumstix computer.
+ 
 	depends on ARCH_GUMSTIX
 
-config GUMSTIX_AM200EPD
-	bool "Enable AM200EPD board support"
+config MACH_GUMSTIX_F
+	bool "Gumstix Basix/Connex ..."
+ 	depends on ARCH_GUMSTIX
+	select PXA25x
+ 
+ choice
+	prompt "Gumstix Carrier/Expansion Board"
+	depends on MACH_GUMSTIX_F 
+ 
+ config GUMSTIX_AM200EPD
+ 	bool "Enable AM200EPD board support"
 
-config GUMSTIX_AM300EPD
-	bool "Enable AM300EPD board support"
-
-endchoice
-
+ config GUMSTIX_AM300EPD
+ 	bool "Enable AM300EPD board support"
+ 
+ endchoice
+ 
+config MACH_GUMSTIX_VERDEX
+	bool "Gumstix VERDEX ..."
+	depends on ARCH_GUMSTIX
+	select PXA27x
+ 
 config MACH_INTELMOTE2
 	bool "Intel Mote 2 Platform"
 	select PXA27x

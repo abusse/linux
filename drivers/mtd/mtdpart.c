@@ -329,9 +329,10 @@ EXPORT_SYMBOL(del_mtd_partitions);
 
 static struct mtd_part *add_one_partition(struct mtd_info *master,
 		const struct mtd_partition *part, int partno,
-		uint64_t cur_offset)
+		uint64_t cur_offset, int nbparts)
 {
 	struct mtd_part *slave;
+	int j;
 
 	/* allocate the partition structure */
 	slave = kzalloc(sizeof(*slave), GFP_KERNEL);
@@ -424,6 +425,12 @@ static struct mtd_part *add_one_partition(struct mtd_info *master,
 	}
 	if (slave->mtd.size == MTDPART_SIZ_FULL)
 		slave->mtd.size = master->size - slave->offset;
+
+	if (slave->mtd.size == MTDPART_SIZ_REMAINDER)
+	{
+		slave->mtd.size = master->size - slave->offset;
+		for(j=partno+1; j<nbparts; j++) slave->mtd.size -= (part+1)->size;
+	}
 
 	printk(KERN_NOTICE "0x%012llx-0x%012llx : \"%s\"\n", (unsigned long long)slave->offset,
 		(unsigned long long)(slave->offset + slave->mtd.size), slave->mtd.name);
@@ -522,7 +529,8 @@ int add_mtd_partitions(struct mtd_info *master,
 	printk(KERN_NOTICE "Creating %d MTD partitions on \"%s\":\n", nbparts, master->name);
 
 	for (i = 0; i < nbparts; i++) {
-		slave = add_one_partition(master, parts + i, i, cur_offset);
+
+		slave = add_one_partition(master, parts + i, i, cur_offset, nbparts);
 		if (!slave)
 			return -ENOMEM;
 		cur_offset = slave->offset + slave->mtd.size;
