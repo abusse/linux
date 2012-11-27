@@ -586,8 +586,11 @@ static int verdex_mci_init(struct device *dev, irq_handler_t detect_int,
 }
 
 static struct pxamci_platform_data verdex_mci_platform_data = {
-    .ocr_mask   = MMC_VDD_32_33|MMC_VDD_33_34,
-    .init       = verdex_mci_init,
+	.ocr_mask   = MMC_VDD_32_33|MMC_VDD_33_34,
+	.init       = verdex_mci_init,
+	.gpio_card_detect 	= -1,
+	.gpio_card_ro		= -1,
+	.gpio_power		= -1,	
 };
 
 static void __init verdex_mmc_init(void)
