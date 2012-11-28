@@ -23,6 +23,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/i2c/tsc2007.h>
+#include <linux/i2c/pxa-i2c.h>
 
 #include <asm/setup.h>
 #include <asm/memory.h>
@@ -40,7 +41,6 @@
 #include <mach/udc.h>
 #include <mach/pxafb.h>
 #include <mach/ohci.h>
-#include <../../plat-pxa/include/plat/i2c.h>
 #include <mach/pxa27x.h>
 #include <mach/pxa27x-udc.h>
 #include <mach/gpio.h>
