@@ -98,13 +98,13 @@ static int __init gumstix_flashmap_init(void)
 		if (!mymtds[i]) {
 			printk(KERN_WARNING "%s is absent. Skipping\n", gumstix_flash_maps[i].name);
 		} else if (nr_parsed_parts[i]) {
-			add_mtd_partitions(mymtds[i], parsed_parts[i], nr_parsed_parts[i]);
+			mtd_device_register(mymtds[i], parsed_parts[i], nr_parsed_parts[i]);
 		} else if (!i) {
 			printk("Using static partitions on %s\n", gumstix_flash_maps[i].name);
-			add_mtd_partitions(mymtds[i], gumstix_flash_partitions, ARRAY_SIZE(gumstix_flash_partitions));
+			mtd_device_register(mymtds[i], gumstix_flash_partitions, ARRAY_SIZE(gumstix_flash_partitions));
 		} else {
 			printk("Registering %s as whole device\n", gumstix_flash_maps[i].name);
-			add_mtd_device(mymtds[i]);
+			mtd_device_register(mymtds[i], NULL, 0);
 		}
 	}
 	return 0;
@@ -118,9 +118,9 @@ static void __exit gumstix_flashmap_cleanup(void)
 			continue;
 
 		if (nr_parsed_parts[i] || !i)
-			del_mtd_partitions(mymtds[i]);
+			mtd_device_unregister(mymtds[i]);
 		else
-			del_mtd_device(mymtds[i]);			
+			mtd_device_unregister(mymtds[i]);			
 
 		map_destroy(mymtds[i]);
 		iounmap((void *)gumstix_flash_maps[i].virt);
