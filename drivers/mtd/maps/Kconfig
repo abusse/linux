@@ -150,13 +150,6 @@ config MTD_SBC_GXX
 	  More info at
 	  <http://www.arcomcontrols.com/products/icp/pc104/processors/SBC_GX1.htm>.
 
-config MTD_GUMSTIX
-	tristate "CFI Flash device mapped on Gumstix"
-	depends on ARCH_GUMSTIX && MTD_CFI_INTELEXT
-	help
-	  This provides a driver for the on-board flash of the Gumstix
-	  single board computers.
-
 config MTD_PXA2XX
 	tristate "CFI Flash device mapped on Intel XScale PXA2xx based boards"
 	depends on (PXA25x || PXA27x) && MTD_CFI_INTELEXT

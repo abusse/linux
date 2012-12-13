@@ -51,6 +51,49 @@
 
 #include <linux/delay.h>
 
+#define ROM_ADDR	0x00000000
+#define FLASH_ADDR	0x00000000
+
+static struct resource flash_resource = {
+	.start	= 0x00000000,
+	.end	= SZ_64M - 1,
+	.flags	= IORESOURCE_MEM,
+};
+
+static struct mtd_partition gumstix_partitions[] = {
+	{
+		.name =		"Bootloader",
+		.size =		0x00040000,
+		.offset =	FLASH_ADDR
+	},{
+		.name =		"RootFS",
+		.size =		MTDPART_SIZ_REMAINDER,
+		.offset =	MTDPART_OFS_NXTBLK
+	},{
+		.name =		"Kernel",
+		.size =		0x00160000,
+		.offset =	MTDPART_OFS_NXTBLK
+	}
+};
+
+static struct flash_platform_data gumstix_flash_data = {
+	.map_name	= "cfi_probe",
+	.parts		= gumstix_partitions,
+	.nr_parts	= ARRAY_SIZE(gumstix_partitions),
+	.width		= 2,
+};
+
+static struct platform_device gumstix_flash_device = {
+	.name		= "pxa2xx-flash",
+	.id		= 0,
+	.dev = {
+		.platform_data = &gumstix_flash_data,
+	},
+	.resource = &flash_resource,
+	.num_resources = 1,
+};
+
+
 #if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
 
 #include <linux/smsc911x.h>
@@ -536,6 +579,7 @@ static struct platform_device verdex_audio_device = {
 };
 
 static struct platform_device *devices[] __initdata = {
+    &gumstix_flash_device,
     &verdex_audio_device,
 };
 
@@ -746,7 +790,7 @@ static void __init verdex_init(void)
 }
 
 MACHINE_START(GUMSTIX, "Gumstix verdex")
-    .boot_params    = 0xa0000100, /* match u-boot bi_boot_params */
+    .atag_offset    = 0x100, /* match u-boot bi_boot_params */
     .map_io         = pxa_map_io,
     .init_irq       = pxa27x_init_irq,
     .timer          = &pxa_timer,

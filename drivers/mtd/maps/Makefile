@@ -17,7 +17,6 @@ obj-$(CONFIG_MTD_ESB2ROM)	+= esb2rom.o
 obj-$(CONFIG_MTD_ICHXROM)	+= ichxrom.o
 obj-$(CONFIG_MTD_CK804XROM)	+= ck804xrom.o
 obj-$(CONFIG_MTD_TSUNAMI)	+= tsunami_flash.o
-obj-$(CONFIG_MTD_GUMSTIX)	+= gumstix-flash.o
 obj-$(CONFIG_MTD_PXA2XX)	+= pxa2xx-flash.o
 obj-$(CONFIG_MTD_MBX860)	+= mbx860.o
 obj-$(CONFIG_MTD_OCTAGON)	+= octagon-5066.o
