@@ -794,6 +794,7 @@ static void __init verdex_init(void)
 MACHINE_START(GUMSTIX, "Gumstix verdex")
     .atag_offset    = 0x100, /* match u-boot bi_boot_params */
     .map_io         = pxa_map_io,
+    .nr_irqs        = PXA_NR_IRQS,
     .init_irq       = pxa27x_init_irq,
     .handle_irq     = pxa27x_handle_irq,
     .timer          = &pxa_timer,
