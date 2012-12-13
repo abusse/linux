@@ -26,6 +26,9 @@
 #include <linux/i2c/pxa-i2c.h>
 #include <linux/gpio.h>
 #include <linux/gpio-pxa.h>
+#include <linux/platform_data/mmc-pxamci.h>
+#include <linux/platform_data/video-pxafb.h>
+#include <linux/platform_data/usb-ohci-pxa27x.h>
 
 #include <asm/setup.h>
 #include <asm/memory.h>
@@ -39,10 +42,7 @@
 #include <asm/mach/irq.h>
 #include <asm/mach/flash.h>
 
-#include <mach/mmc.h>
 #include <mach/udc.h>
-#include <mach/pxafb.h>
-#include <mach/ohci.h>
 #include <mach/pxa27x.h>
 #include <mach/pxa27x-udc.h>
 #include <mach/gpio.h>
