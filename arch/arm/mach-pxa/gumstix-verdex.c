@@ -24,6 +24,8 @@
 #include <linux/mtd/partitions.h>
 #include <linux/i2c/tsc2007.h>
 #include <linux/i2c/pxa-i2c.h>
+#include <linux/gpio.h>
+#include <linux/gpio-pxa.h>
 
 #include <asm/setup.h>
 #include <asm/memory.h>
@@ -106,8 +108,8 @@ static struct resource verdex_smsc911x_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start  = IRQ_GPIO(GPIO_GUMSTIX_ETH0),
-		.end    = IRQ_GPIO(GPIO_GUMSTIX_ETH0),
+		.start  = PXA_GPIO_TO_IRQ(GPIO_GUMSTIX_ETH0),
+		.end    = PXA_GPIO_TO_IRQ(GPIO_GUMSTIX_ETH0),
 		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
 	},
 };
@@ -793,6 +795,8 @@ MACHINE_START(GUMSTIX, "Gumstix verdex")
     .atag_offset    = 0x100, /* match u-boot bi_boot_params */
     .map_io         = pxa_map_io,
     .init_irq       = pxa27x_init_irq,
+    .handle_irq     = pxa27x_handle_irq,
     .timer          = &pxa_timer,
     .init_machine   = verdex_init,
+    .restart        = pxa_restart,
 MACHINE_END
