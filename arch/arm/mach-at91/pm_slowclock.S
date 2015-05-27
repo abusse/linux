@@ -133,7 +133,9 @@ ENTRY(at91_slow_clock)
 	 */
 	/* Put SDRAM in self-refresh mode */
 	mov	tmp1, #1
-	str	tmp1, [sdramc, #AT91RM9200_SDRAMC_SRR]
+	ldr tmp2, =AT91RM9200_SDRAMC_SRR
+	add sdramc, sdramc, tmp2
+	str	tmp1, [sdramc]
 	b	sdr_sr_done
 
 	/*
