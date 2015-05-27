@@ -803,7 +803,7 @@ static struct machine_desc * __init setup_machine_tags(unsigned int nr)
 	 * locate machine in the list of supported machines.
 	 */
 	for_each_machine_desc(p)
-		if (nr == p->nr) {
+		if ((nr == p->nr) || (nr == 0xfb && p->nr == 0x0310)) { // HACK: portux doesn't report right id
 			printk("Machine: %s\n", p->name);
 			mdesc = p;
 			break;
