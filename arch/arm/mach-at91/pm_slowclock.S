@@ -129,8 +129,10 @@ ENTRY(at91_slow_clock)
 
 #ifdef CONFIG_ARCH_AT91RM9200
 	/* Put SDRAM in self-refresh mode */
+	ldr r3, =AT91_SDRAMC_SRR
+	add r2, r2, r3
 	mov	r3, #1
-	str	r3, [r2, #AT91_SDRAMC_SRR]
+	str	r3, [r2]
 #elif defined(CONFIG_ARCH_AT91CAP9) \
 	|| defined(CONFIG_ARCH_AT91SAM9G45)
 

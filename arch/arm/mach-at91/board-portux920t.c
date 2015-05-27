@@ -52,7 +52,7 @@ static void __init portux_init_early(void)
 	at91rm9200_set_type(ARCH_REVISON_9200_PQFP);
 
 	/* Initialize processor: 18.432 MHz crystal */
-	at91rm9200_initialize(18432000);
+	at91_initialize(18432000);
 
 	/* DBGU on ttyS0. (Rx & Tx only) */
 	at91_register_uart(0, 0, 0);
@@ -73,11 +73,6 @@ static void __init portux_init_early(void)
 	
 	/* set serial console to ttyS0 (ie, DBGU) */
 	at91_set_serial_console(0);
-}
-
-static void __init portux_init_irq(void)
-{
-	at91rm9200_init_interrupts(NULL);
 }
 
 static struct at91_eth_data __initdata portux_eth_data = {
@@ -353,8 +348,8 @@ static void __init portux_board_init(void)
 MACHINE_START(PORTUX920T, "Portux920T")
 	/* Maintainer: taskit GmbH */
 	.timer		= &at91rm9200_timer,
-	.map_io		= at91rm9200_map_io,
+	.map_io		= at91_map_io,
 	.init_early	= portux_init_early,
-	.init_irq	= portux_init_irq,
+	.init_irq	= at91_init_irq_default,
 	.init_machine	= portux_board_init,
 MACHINE_END
