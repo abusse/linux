@@ -70,9 +70,6 @@ static void __init portux_init_early(void)
 
 	/* USART3 on ttyS4 (Rx, Tx, CTS, RTS) */
 	at91_register_uart(AT91RM9200_ID_US3, 4, ATMEL_UART_CTS | ATMEL_UART_RTS);
-	
-	/* set serial console to ttyS0 (ie, DBGU) */
-	at91_set_serial_console(0);
 }
 
 static struct macb_platform_data __initdata portux_eth_data = {
@@ -315,6 +312,8 @@ static struct gpio_led portux_leds[] = {
 
 static void __init portux_board_init(void)
 {
+	/* DBGU on ttyS0. (Rx & Tx only */
+	at91_register_uart(0, 0, 0);
 	/* Serial */
 	at91_add_device_serial();
 	at91_set_B_periph(AT91_PIN_PB0,0); /* RTS3 */
