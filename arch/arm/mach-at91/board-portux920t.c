@@ -75,13 +75,15 @@ static void __init portux_init_early(void)
 	at91_set_serial_console(0);
 }
 
-static struct at91_eth_data __initdata portux_eth_data = {
+static struct macb_platform_data __initdata portux_eth_data = {
 	.phy_irq_pin	= AT91_PIN_PC4,
 	.is_rmii	= 1,
 };
 
 static struct at91_usbh_data __initdata portux_usbh_data = {
 	.ports		= 1,
+	.vbus_pin	= {-EINVAL, -EINVAL},
+	.overcurrent_pin= {-EINVAL, -EINVAL},
 };
 
 static struct at91_udc_data __initdata portux_udc_data = {
@@ -92,6 +94,9 @@ static struct at91_udc_data __initdata portux_udc_data = {
 static struct at91_mmc_data __initdata portux_mmc_data = {
 	.slot_b		= 0,
 	.wire4		= 0,
+	.det_pin	= -EINVAL,
+	.wp_pin		= -EINVAL,
+	.vcc_pin	= -EINVAL,
 };
 
 #define PORTUX_FLASH_BASE	AT91_CHIPSELECT_0
