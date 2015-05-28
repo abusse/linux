@@ -40,6 +40,7 @@
 #include <asm/mach/irq.h>
 
 #include <mach/board.h>
+#include <mach/at91_aic.h>
 #include <mach/gpio.h>
 #include <mach/cpu.h>
 
@@ -286,7 +287,7 @@ static struct spi_board_info portux_spi_devices[] = {
 	},
 };
 
-static struct i2c_board_info portux_i2c_devices[] = {
+static struct i2c_board_info __initdata portux_i2c_devices[] = {
 	{
 			I2C_BOARD_INFO("isl1226", 0x6F)
 	}
@@ -326,17 +327,15 @@ static void __init portux_board_init(void)
 	at91_add_device_udc(&portux_udc_data);
 	at91_set_multi_drive(portux_udc_data.pullup_pin, 1);	/* pullup_pin is connected to reset */
 	/* I2C */
-	at91_add_device_i2c(NULL, 0);
+	at91_add_device_i2c(portux_i2c_devices, ARRAY_SIZE(portux_i2c_devices));
 	/* SPI */
-	at91_add_device_spi(portux_spi_devices, 3);
+	at91_add_device_spi(portux_spi_devices, ARRAY_SIZE(portux_spi_devices));
 	/* MMC */
 	at91_add_device_mmc(0, &portux_mmc_data);
 	/* LEDs */
 	at91_gpio_leds(portux_leds, ARRAY_SIZE(portux_leds));
 	/* NOR Flash */
 	platform_device_register(&portux_flash);
-	/* RTC */
-	i2c_register_board_info(0, portux_i2c_devices, ARRAY_SIZE(portux_i2c_devices));
 
 	portux_init_video();
 	
@@ -353,6 +352,7 @@ MACHINE_START(PORTUX920T, "Portux920T")
 	/* Maintainer: taskit GmbH */
 	.timer		= &at91rm9200_timer,
 	.map_io		= at91_map_io,
+	.handle_irq	= at91_aic_handle_irq,
 	.init_early	= portux_init_early,
 	.init_irq	= at91_init_irq_default,
 	.init_machine	= portux_board_init,
