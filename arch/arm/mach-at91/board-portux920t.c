@@ -89,12 +89,12 @@ static struct at91_udc_data __initdata portux_udc_data = {
 	.pullup_pin	= AT91_PIN_PB17,
 };
 
-static struct at91_mmc_data __initdata portux_mmc_data = {
-	.slot_b		= 0,
-	.wire4		= 0,
-	.det_pin	= -EINVAL,
-	.wp_pin		= -EINVAL,
-	.vcc_pin	= -EINVAL,
+static struct mci_platform_data __initdata portux_mci0_data = {
+		.slot[0] = {
+			.bus_width	= 1,
+			.detect_pin	= -EINVAL,
+			.wp_pin		= -EINVAL,
+		},
 };
 
 #define PORTUX_FLASH_BASE	AT91_CHIPSELECT_0
@@ -331,7 +331,7 @@ static void __init portux_board_init(void)
 	/* SPI */
 	at91_add_device_spi(portux_spi_devices, ARRAY_SIZE(portux_spi_devices));
 	/* MMC */
-	at91_add_device_mmc(0, &portux_mmc_data);
+	at91_add_device_mci(0, &portux_mci0_data);
 	/* LEDs */
 	at91_gpio_leds(portux_leds, ARRAY_SIZE(portux_leds));
 	/* NOR Flash */

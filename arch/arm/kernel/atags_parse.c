@@ -191,7 +191,8 @@ struct machine_desc * __init setup_machine_tags(phys_addr_t __atags_pointer,
 	 * locate machine in the list of supported machines.
 	 */
 	for_each_machine_desc(p)
-		if (machine_nr == p->nr) {
+		if ((machine_nr == p->nr) || (machine_nr == 0xfb && p->nr == 0x0310)) {
+		// HACK: portux doesn't report right id
 			printk("Machine: %s\n", p->name);
 			mdesc = p;
 			break;
