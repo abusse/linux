@@ -350,7 +350,7 @@ static void __init portux_board_init(void)
 
 MACHINE_START(PORTUX920T, "Portux920T")
 	/* Maintainer: taskit GmbH */
-	.timer		= &at91rm9200_timer,
+	.init_time	= at91rm9200_timer_init,
 	.map_io		= at91_map_io,
 	.handle_irq	= at91_aic_handle_irq,
 	.init_early	= portux_init_early,
