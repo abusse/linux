@@ -1,3 +1,27 @@
+/* * Copyright (c) Intel Corporation (2011).
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
+
 /* audit.h -- Auditing support
  *
  * Copyright 2003-2004 Red Hat Inc., Durham, North Carolina.
@@ -311,6 +335,8 @@ enum {
 #define AUDIT_ARCH_SPARC	(EM_SPARC)
 #define AUDIT_ARCH_SPARC64	(EM_SPARCV9|__AUDIT_ARCH_64BIT)
 #define AUDIT_ARCH_X86_64	(EM_X86_64|__AUDIT_ARCH_64BIT|__AUDIT_ARCH_LE)
+#define AUDIT_ARCH_L1OM		(EM_L1OM|__AUDIT_ARCH_64BIT|__AUDIT_ARCH_LE)
+#define AUDIT_ARCH_K1OM		(EM_K1OM|__AUDIT_ARCH_64BIT|__AUDIT_ARCH_LE)
 
 #define AUDIT_PERM_EXEC		1
 #define AUDIT_PERM_WRITE	2
@@ -469,9 +495,9 @@ extern int  audit_set_loginuid(struct task_struct *task, uid_t loginuid);
 extern void audit_log_task_context(struct audit_buffer *ab);
 extern void __audit_ipc_obj(struct kern_ipc_perm *ipcp);
 extern void __audit_ipc_set_perm(unsigned long qbytes, uid_t uid, gid_t gid, mode_t mode);
-extern int audit_bprm(struct linux_binprm *bprm);
-extern void audit_socketcall(int nargs, unsigned long *args);
-extern int audit_sockaddr(int len, void *addr);
+extern void __audit_bprm(struct linux_binprm *bprm);
+extern void __audit_socketcall(int nargs, unsigned long *args);
+extern int __audit_sockaddr(int len, void *addr);
 extern void __audit_fd_pair(int fd1, int fd2);
 extern int audit_set_macxattr(const char *name);
 extern void __audit_mq_open(int oflag, mode_t mode, struct mq_attr *attr);
@@ -498,6 +524,23 @@ static inline void audit_ipc_set_perm(unsigned long qbytes, uid_t uid, gid_t gid
 {
 	if (unlikely(!audit_dummy_context()))
 		__audit_ipc_set_perm(qbytes, uid, gid, mode);
+}
+static inline int audit_bprm(struct linux_binprm *bprm)
+{
+	if (unlikely(!audit_dummy_context()))
+		__audit_bprm(bprm);
+	return 0;
+}
+static inline void audit_socketcall(int nargs, unsigned long *args)
+{
+	if (unlikely(!audit_dummy_context()))
+		__audit_socketcall(nargs, args);
+}
+static inline int audit_sockaddr(int len, void *addr)
+{
+	if (unlikely(!audit_dummy_context()))
+		return __audit_sockaddr(len, addr);
+	return 0;
 }
 static inline void audit_mq_open(int oflag, mode_t mode, struct mq_attr *attr)
 {

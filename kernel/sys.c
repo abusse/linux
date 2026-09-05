@@ -376,8 +376,10 @@ EXPORT_SYMBOL_GPL(kernel_restart);
 
 static void kernel_shutdown_prepare(enum system_states state)
 {
+	printk("Preparing to shutdown kernel\n");
 	blocking_notifier_call_chain(&reboot_notifier_list,
 		(state == SYSTEM_HALT)?SYS_HALT:SYS_POWER_OFF, NULL);
+	printk("Back from notifier call\n");
 	system_state = state;
 	usermodehelper_disable();
 	device_shutdown();
@@ -1840,6 +1842,21 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 					PR_MCE_KILL_EARLY : PR_MCE_KILL_LATE;
 			else
 				error = PR_MCE_KILL_DEFAULT;
+			break;
+		case PR_GET_THP_DISABLE:
+			if (arg2 || arg3 || arg4 || arg5)
+				return -EINVAL;
+			error = !!(me->mm->def_flags & VM_NOHUGEPAGE);
+			break;
+		case PR_SET_THP_DISABLE:
+			if (arg3 || arg4 || arg5)
+				return -EINVAL;
+			down_write(&me->mm->mmap_sem);
+			if (arg2)
+				me->mm->def_flags |= VM_NOHUGEPAGE;
+			else
+				me->mm->def_flags &= ~VM_NOHUGEPAGE;
+			up_write(&me->mm->mmap_sem);
 			break;
 		default:
 			error = -EINVAL;
