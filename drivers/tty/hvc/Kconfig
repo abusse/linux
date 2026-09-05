@@ -9,6 +9,14 @@ config HVC_DRIVER
 config HVC_IRQ
 	bool
 
+config HVC_MIC
+	bool "Intel MIC Virtual Console support"
+	depends on X86_MICPCI
+	select HVC_DRIVER
+	help
+	  Intel MIC Virtual Console support.
+
+
 config HVC_CONSOLE
 	bool "pSeries Hypervisor Virtual Console support"
 	depends on PPC_PSERIES
