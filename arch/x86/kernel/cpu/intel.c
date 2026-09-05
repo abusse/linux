@@ -1,3 +1,27 @@
+/* * Copyright (c) Intel Corporation (2011).
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
+
 #include <linux/init.h>
 #include <linux/kernel.h>
 
@@ -32,7 +56,7 @@ static void __cpuinit early_init_intel(struct cpuinfo_x86 *c)
 	u64 misc_enable;
 
 	/* Unmask CPUID levels if masked: */
-	if (c->x86 > 6 || (c->x86 == 6 && c->x86_model >= 0xd)) {
+	if ((c->x86 > 6 && c->x86 != 11) || (c->x86 == 6 && c->x86_model >= 0xd)) {
 		rdmsrl(MSR_IA32_MISC_ENABLE, misc_enable);
 
 		if (misc_enable & MSR_IA32_MISC_ENABLE_LIMIT_CPUID) {
@@ -135,7 +159,7 @@ static void __cpuinit early_init_intel(struct cpuinfo_x86 *c)
 	 * If fast string is not enabled in IA32_MISC_ENABLE for any reason,
 	 * clear the fast string and enhanced fast string CPU capabilities.
 	 */
-	if (c->x86 > 6 || (c->x86 == 6 && c->x86_model >= 0xd)) {
+	if ((c->x86 > 6 && c->x86 != 11) || (c->x86 == 6 && c->x86_model >= 0xd)) {
 		rdmsrl(MSR_IA32_MISC_ENABLE, misc_enable);
 		if (!(misc_enable & MSR_IA32_MISC_ENABLE_FAST_STRING)) {
 			printk(KERN_INFO "Disabled fast string operations\n");
@@ -309,6 +333,16 @@ static void __cpuinit srat_detect_node(struct cpuinfo_x86 *c)
  */
 static int __cpuinit intel_num_cpu_cores(struct cpuinfo_x86 *c)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* MICBUGBUG: number of active cores is in SBOX RS agent register */
+#if defined(CONFIG_ML1OM)
+	return 32;
+#elif defined(CONFIG_MK1OM)
+	return 62;
+#else
+#error X86_EARLYMIC but neither ML1OM nor MK1OM
+#endif
+#else
 	unsigned int eax, ebx, ecx, edx;
 
 	if (c->cpuid_level < 4)
@@ -320,6 +354,7 @@ static int __cpuinit intel_num_cpu_cores(struct cpuinfo_x86 *c)
 		return (eax >> 26) + 1;
 	else
 		return 1;
+#endif
 }
 
 static void __cpuinit detect_vmx_virtcap(struct cpuinfo_x86 *c)
@@ -402,6 +437,11 @@ static void __cpuinit init_intel(struct cpuinfo_x86 *c)
 		c->x86_cache_alignment = c->x86_clflush_size * 2;
 	if (c->x86 == 6)
 		set_cpu_cap(c, X86_FEATURE_REP_GOOD);
+#ifdef CONFIG_MK1OM
+	/* De-select rep string ops microcode for K1OM */
+	clear_cpu_cap(c, X86_FEATURE_REP_GOOD);
+#endif
+
 #else
 	/*
 	 * Names for the Pentium II/Celeron processors

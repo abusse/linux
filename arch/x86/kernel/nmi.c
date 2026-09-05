@@ -263,6 +263,18 @@ io_check_error(unsigned char reason, struct pt_regs *regs)
 	outb(reason, NMI_REASON_PORT);
 }
 
+#ifdef CONFIG_KDB
+#include <linux/kdb.h>
+#endif
+
+#ifdef CONFIG_X86_EARLYMIC
+/* Intercept hook for RAS module */
+int (*mca_nmi)(int);
+EXPORT_SYMBOL_GPL(mca_nmi);
+atomic_t mca_inject;
+EXPORT_SYMBOL_GPL(mca_inject);
+#endif
+
 static notrace __kprobes void
 unknown_nmi_error(unsigned char reason, struct pt_regs *regs)
 {
@@ -310,6 +322,17 @@ static notrace __kprobes void default_do_nmi(struct pt_regs *regs)
 	unsigned char reason = 0;
 	int handled;
 	bool b2b = false;
+	int cpu = smp_processor_id();
+
+#ifdef CONFIG_X86_EARLYMIC
+	/* RAS module first pass on the NMI (un-core MC events) */
+	if (!atomic_read(&mca_inject) && mca_nmi && mca_nmi(cpu))
+		return;
+#endif
+#if defined(CONFIG_SMP) && defined(CONFIG_KDB)
+	if (kdb_ipi(regs, NULL))
+		return;
+#endif
 
 	/*
 	 * CPU-specific NMI must be processed before non-CPU-specific

@@ -1,3 +1,26 @@
+/* * Copyright (c) 2010 - 2012 Intel Corporation.
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
 #ifndef _ASM_X86_UNISTD_64_H
 #define _ASM_X86_UNISTD_64_H
 
@@ -668,17 +691,19 @@ __SYSCALL(__NR_fanotify_init, sys_fanotify_init)
 __SYSCALL(__NR_fanotify_mark, sys_fanotify_mark)
 #define __NR_prlimit64				302
 __SYSCALL(__NR_prlimit64, sys_prlimit64)
-#define __NR_name_to_handle_at			303
+#define __NR_cacheflush			303
+__SYSCALL(__NR_cacheflush, sys_cacheflush)
+#define __NR_name_to_handle_at			304
 __SYSCALL(__NR_name_to_handle_at, sys_name_to_handle_at)
-#define __NR_open_by_handle_at			304
+#define __NR_open_by_handle_at			305
 __SYSCALL(__NR_open_by_handle_at, sys_open_by_handle_at)
-#define __NR_clock_adjtime			305
+#define __NR_clock_adjtime			306
 __SYSCALL(__NR_clock_adjtime, sys_clock_adjtime)
-#define __NR_syncfs                             306
+#define __NR_syncfs                             307
 __SYSCALL(__NR_syncfs, sys_syncfs)
-#define __NR_sendmmsg				307
+#define __NR_sendmmsg				308
 __SYSCALL(__NR_sendmmsg, sys_sendmmsg)
-#define __NR_setns				308
+#define __NR_setns				309
 __SYSCALL(__NR_setns, sys_setns)
 #define __NR_getcpu				309
 __SYSCALL(__NR_getcpu, sys_getcpu)
