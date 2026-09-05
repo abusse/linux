@@ -117,6 +117,9 @@ int huge_pmd_unshare(struct mm_struct *mm, unsigned long *addr, pte_t *ptep)
 	pgd_t *pgd = pgd_offset(mm, *addr);
 	pud_t *pud = pud_offset(pgd, *addr);
 
+	if (pte_64k(*ptep))
+		return 0;
+
 	BUG_ON(page_count(virt_to_page(ptep)) == 0);
 	if (page_count(virt_to_page(ptep)) == 1)
 		return 0;
@@ -132,6 +135,7 @@ pte_t *huge_pte_alloc(struct mm_struct *mm,
 {
 	pgd_t *pgd;
 	pud_t *pud;
+	pmd_t *pmd;
 	pte_t *pte = NULL;
 
 	pgd = pgd_offset(mm, addr);
@@ -140,13 +144,18 @@ pte_t *huge_pte_alloc(struct mm_struct *mm,
 		if (sz == PUD_SIZE) {
 			pte = (pte_t *)pud;
 		} else {
-			BUG_ON(sz != PMD_SIZE);
-			if (pud_none(*pud))
-				huge_pmd_share(mm, addr, pud);
-			pte = (pte_t *) pmd_alloc(mm, pud, addr);
+			BUG_ON(sz != PMD_SIZE && sz != 0x10000);
+			if (sz == PMD_SIZE) {
+				if (pud_none(*pud))
+					huge_pmd_share(mm, addr, pud);
+				pte = (pte_t *) pmd_alloc(mm, pud, addr);
+			} else if ((pmd = pmd_alloc(mm, pud, addr))) {
+				addr = round_down(addr, 0x10000);
+				pte = pte_alloc_map(mm, NULL, pmd, addr);
+			}
 		}
 	}
-	BUG_ON(pte && !pte_none(*pte) && !pte_huge(*pte));
+	BUG_ON(pte && !pte_none(*pte) && !pte_huge(*pte) && !pte_64k(*pte));
 
 	return pte;
 }
@@ -155,6 +164,7 @@ pte_t *huge_pte_offset(struct mm_struct *mm, unsigned long addr)
 {
 	pgd_t *pgd;
 	pud_t *pud;
+	pte_t *pte;
 	pmd_t *pmd = NULL;
 
 	pgd = pgd_offset(mm, addr);
@@ -164,6 +174,10 @@ pte_t *huge_pte_offset(struct mm_struct *mm, unsigned long addr)
 			if (pud_large(*pud))
 				return (pte_t *)pud;
 			pmd = pmd_offset(pud, addr);
+			if (pmd && pmd_present(*pmd) && !pmd_large(*pmd)) {
+				pte = pte_offset_map(pmd, round_down(addr, 0x10000));
+				return pte;
+			}
 		}
 	}
 	return (pte_t *) pmd;
@@ -266,7 +280,7 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *file,
 	struct hstate *h = hstate_file(file);
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
-	unsigned long start_addr;
+	unsigned long start_addr, vm_start;
 
 	if (len > mm->cached_hole_size) {
 	        start_addr = mm->free_area_cache;
@@ -292,12 +306,14 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (!vma || addr + len <= vma->vm_start) {
+		if (vma)
+			vm_start = vm_start_gap(vma);
+		if (!vma || addr + len <= vm_start) {
 			mm->free_area_cache = addr + len;
 			return addr;
 		}
-		if (addr + mm->cached_hole_size < vma->vm_start)
-		        mm->cached_hole_size = vma->vm_start - addr;
+		if (addr + mm->cached_hole_size < vm_start)
+			mm->cached_hole_size = vm_start - addr;
 		addr = ALIGN(vma->vm_end, huge_page_size(h));
 	}
 }
@@ -311,6 +327,7 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 	struct vm_area_struct *vma, *prev_vma;
 	unsigned long base = mm->mmap_base, addr = addr0;
 	unsigned long largest_hole = mm->cached_hole_size;
+	unsigned long vm_start;
 	int first_time = 1;
 
 	/* don't allow allocations above current base */
@@ -340,7 +357,8 @@ try_again:
 		 * new region fits between prev_vma->vm_end and
 		 * vma->vm_start, use it:
 		 */
-		if (addr + len <= vma->vm_start &&
+		vm_start = vm_start_gap(vma);
+		if (addr + len <= vm_start &&
 		            (!prev_vma || (addr >= prev_vma->vm_end))) {
 			/* remember the address as a hint for next time */
 		        mm->cached_hole_size = largest_hole;
@@ -348,18 +366,18 @@ try_again:
 		} else {
 			/* pull free_area_cache down to the first hole */
 		        if (mm->free_area_cache == vma->vm_end) {
-				mm->free_area_cache = vma->vm_start;
+				mm->free_area_cache = vm_start;
 				mm->cached_hole_size = largest_hole;
 			}
 		}
 
 		/* remember the largest hole we saw so far */
-		if (addr + largest_hole < vma->vm_start)
-		        largest_hole = vma->vm_start - addr;
+		if (addr + largest_hole < vm_start)
+			largest_hole = vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = (vma->vm_start - len) & huge_page_mask(h);
-	} while (len <= vma->vm_start);
+		addr = (vm_start - len) & huge_page_mask(h);
+	} while (len <= vm_start);
 
 fail:
 	/*
@@ -415,7 +433,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 		addr = ALIGN(addr, huge_page_size(h));
 		vma = find_vma(mm, addr);
 		if (TASK_SIZE - len >= addr &&
-		    (!vma || addr + len <= vma->vm_start))
+		    (!vma || addr + len <= vm_start_gap(vma)))
 			return addr;
 	}
 	if (mm->get_unmapped_area == arch_get_unmapped_area)
@@ -436,6 +454,10 @@ static __init int setup_hugepagesz(char *opt)
 		hugetlb_add_hstate(PMD_SHIFT - PAGE_SHIFT);
 	} else if (ps == PUD_SIZE && cpu_has_gbpages) {
 		hugetlb_add_hstate(PUD_SHIFT - PAGE_SHIFT);
+#ifdef CONFIG_X86_EARLYMIC
+	} else if (ps == 0x10000) {
+		hugetlb_add_hstate(__ffs(ps) - PAGE_SHIFT);
+#endif
 	} else {
 		printk(KERN_ERR "hugepagesz: Unsupported page size %lu M\n",
 			ps >> 20);

@@ -1,6 +1,6 @@
 #ifdef CONFIG_CPU_SUP_AMD
 
-static __initconst const u64 amd_hw_cache_event_ids
+static const u64 amd_hw_cache_event_ids
 				[PERF_COUNT_HW_CACHE_MAX]
 				[PERF_COUNT_HW_CACHE_OP_MAX]
 				[PERF_COUNT_HW_CACHE_RESULT_MAX] =

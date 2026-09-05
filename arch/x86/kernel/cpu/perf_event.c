@@ -1446,6 +1446,7 @@ x86_get_event_constraints(struct cpu_hw_events *cpuc, struct perf_event *event)
 #include "perf_event_p4.c"
 #include "perf_event_intel_lbr.c"
 #include "perf_event_intel_ds.c"
+#include "perf_event_knc.c"
 #include "perf_event_intel.c"
 
 static int __cpuinit
