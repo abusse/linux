@@ -868,7 +868,7 @@ static int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 				return -EINVAL;
 		}
 
-		return netlink_dump_start(idiagnl, skb, nlh,
+		return netlink_dump_start(idiagnl, skb, nlh, NULL,
 					  inet_diag_dump, NULL);
 	}
 
