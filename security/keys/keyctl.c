@@ -695,10 +695,9 @@ long keyctl_read_key(key_serial_t keyid, char __user *buffer, size_t buflen)
 	 * - we automatically take account of the fact that it may be
 	 *   dangling off an instantiation key
 	 */
-	if (!is_key_possessed(key_ref)) {
-		ret = -EACCES;
-		goto error2;
-	}
+	ret = key_read_state(key);
+	if (ret < 0)
+		goto error2; /* Negatively instantiated */
 
 	/* the key is probably readable - now try to read it */
 can_read_key:
@@ -804,7 +803,7 @@ long keyctl_chown_key(key_serial_t id, uid_t uid, gid_t gid)
 		atomic_dec(&key->user->nkeys);
 		atomic_inc(&newowner->nkeys);
 
-		if (test_bit(KEY_FLAG_INSTANTIATED, &key->flags)) {
+		if (key->state != KEY_IS_UNINSTANTIATED) {
 			atomic_dec(&key->user->nikeys);
 			atomic_inc(&newowner->nikeys);
 		}
@@ -1188,8 +1187,10 @@ error:
  * Read or set the default keyring in which request_key() will cache keys and
  * return the old setting.
  *
- * If a process keyring is specified then this will be created if it doesn't
+ * If a process keyring is specified then will be created if it
  * yet exist.  The old setting will be returned if successful.
+ * If a thread or process keyring is specified then it will be created if it
+ * doesn't yet exist.  The old setting will be returned if successful.
  */
 long keyctl_set_reqkey_keyring(int reqkey_defl)
 {
@@ -1214,11 +1215,8 @@ long keyctl_set_reqkey_keyring(int reqkey_defl)
 
 	case KEY_REQKEY_DEFL_PROCESS_KEYRING:
 		ret = install_process_keyring_to_cred(new);
-		if (ret < 0) {
-			if (ret != -EEXIST)
-				goto error;
-			ret = 0;
-		}
+		if (ret < 0)
+			goto error;
 		goto set;
 
 	case KEY_REQKEY_DEFL_DEFAULT:
