@@ -64,6 +64,9 @@ static __always_inline __pure bool use_xsaveopt(void)
 
 static __always_inline __pure bool use_xsave(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	return 1;
+#endif
 	return static_cpu_has(X86_FEATURE_XSAVE);
 }
 
@@ -86,6 +89,10 @@ static inline int fxrstor_checking(struct i387_fxsave_struct *fx)
 {
 	int err;
 
+#ifdef CONFIG_MK1OM
+	/* KNC errata: MXCSR.DUE (bit 21) must be 1. Force it on. */
+	fx->mxcsr |= 0x200000;
+#endif
 	/* See comment in fxsave() below. */
 #ifdef CONFIG_AS_FXSAVEQ
 	asm volatile("1:  fxrstorq %[fx]\n\t"
@@ -245,8 +252,25 @@ static inline int fpu_save_init(struct fpu *fpu)
 
 static inline int __save_init_fpu(struct task_struct *tsk)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* KNC: save x87/SSE then the vector/mask (vpu) state. */
+	fpu_fxsave(&tsk->thread.fpu);
+	save_init_vpu(&tsk->thread.fpu.state->xsave);
+	return 1;
+#else
 	return fpu_save_init(&tsk->thread.fpu);
+#endif
 }
+
+#ifdef CONFIG_MK1OM
+void restore_mask_regs(void);
+static inline int mic_restore_mask_regs(struct task_struct *tsk)
+{
+	struct xsave_struct *xstate = &tsk->thread.fpu.state->xsave;
+
+	return _mic_restore_mask_regs(xstate);
+}
+#endif
 
 static inline int fpu_fxrstor_checking(struct fpu *fpu)
 {
@@ -393,6 +417,15 @@ static inline void switch_fpu_finish(struct task_struct *new, fpu_switch_t fpu)
 		if (unlikely(restore_fpu_checking(new)))
 			__thread_fpu_end(new);
 	}
+#ifdef CONFIG_MK1OM
+	if (tsk_used_math(new)) {
+		if (!fpu.preload)
+			clts();
+		restore_mask_regs();
+		if (!fpu.preload)
+			stts();
+	}
+#endif
 }
 
 /*
