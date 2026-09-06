@@ -34,11 +34,6 @@ struct address_space;
 struct page {
 	unsigned long flags;		/* Atomic flags, some possibly
 					 * updated asynchronously */
-#ifdef CONFIG_PRECOMPUTE_WAITQ_HEAD
-	wait_queue_head_t *wq;		/* Points to the wait queue list head
-					* that stores the list of waiters for
-					* this page. */
-#endif
 	atomic_t _count;		/* Usage count, see below. */
 	union {
 		atomic_t _mapcount;	/* Count of ptes mapped in mms,

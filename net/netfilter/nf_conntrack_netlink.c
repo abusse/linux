@@ -969,8 +969,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
 	int err;
 
 	if (nlh->nlmsg_flags & NLM_F_DUMP)
-		return netlink_dump_start(ctnl, skb, nlh, NULL,
-					  ctnetlink_dump_table,
+		return netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
 					  ctnetlink_done);
 
 	err = ctnetlink_parse_zone(cda[CTA_ZONE], &zone);
@@ -1839,7 +1838,7 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
 	int err;
 
 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
-		return netlink_dump_start(ctnl, skb, nlh, NULL,
+		return netlink_dump_start(ctnl, skb, nlh,
 					  ctnetlink_exp_dump_table,
 					  ctnetlink_exp_done);
 	}

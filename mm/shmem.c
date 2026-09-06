@@ -65,12 +65,6 @@ static struct vfsmount *shm_mnt;
 #include <asm/div64.h>
 #include <asm/pgtable.h>
 
-#ifdef CONFIG_PAGE_CACHE_DMA
-#include <linux/mic_dma/mic_dma_local.h>
-#include <linux/mic_dma/mic_dma_callback.h>
-#endif
-extern int vfs_optimization;
-
 /*
  * The maximum size of a shmem/tmpfs file is limited by the maximum size of
  * its triple-indirect swap vector - see illustration at shmem_swp_entry().
@@ -1253,7 +1247,6 @@ static int shmem_getpage(struct inode *inode, unsigned long idx,
 	swp_entry_t swap;
 	gfp_t gfp;
 	int error;
-	int add_to_radix_tree = 1, left = 1;
 
 	if (idx >= SHMEM_MAX_INDEX)
 		return -EFBIG;
@@ -1289,32 +1282,13 @@ repeat:
 			prealloc_page = shmem_alloc_page(gfp, info, idx);
 			if (prealloc_page) {
 				if (mem_cgroup_cache_charge(prealloc_page,
-							current->mm, GFP_KERNEL)) {
+						current->mm, GFP_KERNEL)) {
 					page_cache_release(prealloc_page);
 					prealloc_page = NULL;
 				}
 			}
 		}
 	}
-#ifdef CONFIG_PAGE_CACHE_HIGH_ORDER_PAGE_ALLOC
-	else if (vfs_opt_write_enabled(mapping->backing_dev_info)
-			&& sgp == SGP_WRITE) {
-		/*
-		 * Handle the case where a new page is
-		 * already allocated using build_tree
-		 */
-		prealloc_page = filepage;
-		filepage = NULL;
-		if (prealloc_page) {
-			if (mem_cgroup_cache_charge(prealloc_page,
-						current->mm, GFP_KERNEL)) {
-				page_cache_release(prealloc_page);
-				prealloc_page = NULL;
-			}
-		}
-		add_to_radix_tree = 0;
-	}
-#endif
 	error = 0;
 
 	spin_lock(&info->lock);
@@ -1454,7 +1428,7 @@ repeat:
 			goto nospace;
 
 		if (!filepage) {
-			int ret = 0;
+			int ret;
 
 			if (!prealloc_page) {
 				spin_unlock(&info->lock);
@@ -1499,11 +1473,8 @@ repeat:
 			if (ret)
 				mem_cgroup_uncharge_cache_page(filepage);
 			else
-#ifdef CONFIG_PAGE_CACHE_HIGH_ORDER_PAGE_ALLOC
-				if (add_to_radix_tree)
-#endif
-					ret = add_to_page_cache_lru(filepage,
-							mapping, idx, GFP_NOWAIT);
+				ret = add_to_page_cache_lru(filepage, mapping,
+						idx, GFP_NOWAIT);
 			/*
 			 * At add_to_page_cache_lru() failure, uncharge will
 			 * be done automatically.
@@ -1523,25 +1494,7 @@ repeat:
 
 		info->alloced++;
 		spin_unlock(&info->lock);
-
-		/*
-		 * If vfs_optimization is disabled or if a page
-		 * is not allocated using build_tree, then clear pages
-		 * using vectorized memcpy, if available
-		 */
-		if (add_to_radix_tree) {
-#ifdef CONFIG_VECTOR_MEMCPY
-			if (vfs_opt_write_enabled(mapping->backing_dev_info)) {
-				char *kaddr;
-				kaddr = kmap_atomic(filepage, KM_USER0);
-				left = copy_user_generic_vector(kaddr, empty_zero_page, PAGE_SIZE);
-				kunmap_atomic(kaddr, KM_USER0);
-			}
-#endif
-			if (left)
-				clear_highpage(filepage);
-		}
-
+		clear_highpage(filepage);
 		flush_dcache_page(filepage);
 		SetPageUptodate(filepage);
 		if (sgp == SGP_DIRTY)
@@ -1553,18 +1506,6 @@ done:
 	goto out;
 
 nospace:
-#ifdef CONFIG_PAGE_CACHE_HIGH_ORDER_PAGE_ALLOC
-	/* Based on the comment below, if we had a page on the tree but it came
-	 * from build_tree(), and we were planning on using it as a prealloc_page,
-	 * restore filepage and treat it like something that was passed into the
-	 * function (e.g. readpage). The code below will then unlock it and do
-	 * the right thing.
-	 */
-	if (!add_to_radix_tree) {
-		filepage = prealloc_page;
-		prealloc_page = NULL;
-	}
-#endif
 	/*
 	 * Perhaps the page was brought in from swap between find_lock_page
 	 * and taking info->lock?  We allow for that at add_to_page_cache_lru,
@@ -1600,24 +1541,11 @@ static int shmem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct inode *inode = vma->vm_file->f_path.dentry->d_inode;
 	int error;
 	int ret;
-	struct address_space *mapping = inode->i_mapping;
 
 	if (((loff_t)vmf->pgoff << PAGE_CACHE_SHIFT) >= i_size_read(inode))
 		return VM_FAULT_SIGBUS;
-#ifdef CONFIG_VECTOR_MEMCPY
-	/* Save user fpu state */
-	if (vfs_opt_write_enabled(mapping->backing_dev_info))
-		kernel_fpu_begin();
-#endif
 
 	error = shmem_getpage(inode, vmf->pgoff, &vmf->page, SGP_CACHE, &ret);
-
-#ifdef CONFIG_VECTOR_MEMCPY
-	/* Restore user fpu state */
-	if (vfs_opt_write_enabled(mapping->backing_dev_info))
-		kernel_fpu_end();
-#endif
-
 	if (error)
 		return ((error == -ENOMEM) ? VM_FAULT_OOM : VM_FAULT_SIGBUS);
 	if (ret & VM_FAULT_MAJOR) {
@@ -1782,20 +1710,13 @@ shmem_write_end(struct file *file, struct address_space *mapping,
 	return copied;
 }
 
-static void do_shmem_file_read(struct file *filp, loff_t *ppos,
-		read_descriptor_t *desc, read_actor_t actor)
+static void do_shmem_file_read(struct file *filp, loff_t *ppos, read_descriptor_t *desc, read_actor_t actor)
 {
 	struct inode *inode = filp->f_path.dentry->d_inode;
 	struct address_space *mapping = inode->i_mapping;
 	unsigned long index, offset;
 	enum sgp_type sgp = SGP_READ;
 
-#ifdef CONFIG_PAGE_CACHE_DMA
-	struct page **upages = NULL, **pages = NULL;
-	unsigned long nr_upages = 0, nr_kpages = 0, pidx = 0, uidx = 0;
-	int upages_pinned = 0, i;
-	struct dma_channel *chan = NULL;
-#endif
 	/*
 	 * Might this read be for a stacking filesystem?  Then when reading
 	 * holes of a sparse file, we actually need to allocate those pages,
@@ -1806,32 +1727,6 @@ static void do_shmem_file_read(struct file *filp, loff_t *ppos,
 
 	index = *ppos >> PAGE_CACHE_SHIFT;
 	offset = *ppos & ~PAGE_CACHE_MASK;
-
-#ifdef CONFIG_PAGE_CACHE_HIGH_ORDER_PAGE_ALLOC
-	if (vfs_opt_read_enabled(mapping->backing_dev_info)) {
-#ifdef CONFIG_PAGE_CACHE_DMA
-		/* how many buffer pages to pin down? */
-		nr_upages = calculate_pages(desc->count,
-				(unsigned long)desc->arg.buf & (PAGE_CACHE_SIZE - 1));
-
-		nr_kpages = calculate_pages(desc->count, offset);
-		pages = kmalloc(nr_kpages * sizeof(struct page *),
-				GFP_KERNEL);
-
-		upages = prepare_for_dma_read(desc, nr_upages, &chan,
-				&upages_pinned);
-		if (unlikely(upages == NULL)) {
-			chan = NULL;
-			kfree(pages);
-			pages = NULL;
-		}
-#endif
-#ifdef CONFIG_VECTOR_MEMCPY
-		/* Save user fpu state */
-		kernel_fpu_begin();
-#endif
-	}
-#endif
 
 	for (;;) {
 		struct page *page = NULL;
@@ -1901,61 +1796,18 @@ static void do_shmem_file_read(struct file *filp, loff_t *ppos,
 		 * "pos" here (the actor routine has to update the user buffer
 		 * pointers and the remaining count).
 		 */
-#ifdef CONFIG_PAGE_CACHE_DMA
-		if (vfs_opt_read_enabled(mapping->backing_dev_info)
-				&& chan) {
-			pages[pidx] = page;
-			pidx++;
-			ret = fast_copy_to_user(desc, upages, &uidx, page,
-					offset, nr, chan);
-		} else
-#endif
-			ret = actor(desc, page, offset, nr);
-
+		ret = actor(desc, page, offset, nr);
 		offset += ret;
 		index += offset >> PAGE_CACHE_SHIFT;
 		offset &= ~PAGE_CACHE_MASK;
 
-#ifdef CONFIG_PAGE_CACHE_DMA
-		if (!vfs_opt_read_enabled(mapping->backing_dev_info)
-				|| chan == NULL)
-#endif
-			page_cache_release(page);
-
+		page_cache_release(page);
 		if (ret != nr || !desc->count)
 			break;
 
 		cond_resched();
 	}
 
-
-#ifdef CONFIG_PAGE_CACHE_HIGH_ORDER_PAGE_ALLOC
-	/* Restore user fpu state. */
-	if (vfs_opt_read_enabled(mapping->backing_dev_info)) {
-#ifdef CONFIG_VECTOR_MEMCPY
-		kernel_fpu_end();
-#endif
-#ifdef CONFIG_PAGE_CACHE_DMA
-		wait_for_dma_finish(chan, desc);
-		if (upages) {
-			/* release pinned upages */
-			for (i = 0; i < upages_pinned; i++)
-				page_cache_release(upages[i]);
-
-			kfree(upages);
-		}
-
-		if (pages) {
-			/* Free page cache pages after the DMA operation is completed */
-			for (i = 0; i < pidx; i++) {
-				BUG_ON(!pages[i]);
-				page_cache_release(pages[i]);
-			}
-			kfree(pages);
-		}
-#endif
-	}
-#endif
 	*ppos = ((loff_t) index << PAGE_CACHE_SHIFT) + offset;
 	file_accessed(filp);
 }

@@ -50,10 +50,6 @@
 
 #include <trace/events/timer.h>
 
-#ifdef CONFIG_MIC_PM
-#include "../drivers/micpm/mic_menu.h"
-#endif
-
 /*
  * The timer bases:
  *
@@ -1494,27 +1490,7 @@ EXPORT_SYMBOL_GPL(hrtimer_init_sleeper);
 
 static int __sched do_nanosleep(struct hrtimer_sleeper *t, enum hrtimer_mode mode)
 {
-#ifdef CONFIG_MIC_PM
-	cpumask_var_t mask;
-	int ret;
-#endif
 	hrtimer_init_sleeper(t, current);
-
-#ifdef CONFIG_MIC_PM
-	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-		return -ENOMEM;
-	ret = sched_getaffinity(0, mask);
-	if (ret) {
-		free_cpumask_var(mask);
-		return ret;
-	}
-	ret = sched_setaffinity(0, cpumask_of(smp_processor_id()));
-	if (ret) {
-		free_cpumask_var(mask);
-		return ret;
-	}
-	mic_pc3_disable();
-#endif
 
 	do {
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -1531,13 +1507,6 @@ static int __sched do_nanosleep(struct hrtimer_sleeper *t, enum hrtimer_mode mod
 	} while (t->task && !signal_pending(current));
 
 	__set_current_state(TASK_RUNNING);
-
-#ifdef CONFIG_MIC_PM
-	mic_pc3_enable();
-	if (sched_setaffinity(0, mask))
-		printk(KERN_ERR "error setting affinity %s\n", __func__);
-	free_cpumask_var(mask);
-#endif
 
 	return t->task == NULL;
 }

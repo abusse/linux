@@ -341,7 +341,7 @@ config X86_CMPXCHG
 	def_bool X86_64 || (X86_32 && !M386)
 
 config CMPXCHG_LOCAL
-	def_bool X86_64 || (X86_32 && !M386)
+	def_bool (X86_64 || (X86_32 && !M386)) && !MK1OM	# k1om lacks CMPXCHG16B
 
 config X86_L1_CACHE_SHIFT
 	int
