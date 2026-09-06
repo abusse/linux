@@ -11,7 +11,6 @@
 #include <linux/mm_types.h>
 #include <generated/bounds.h>
 #endif /* !__GENERATING_BOUNDS_H */
-#include <linux/mmdebug.h>
 
 /*
  * Various page->flags bits:

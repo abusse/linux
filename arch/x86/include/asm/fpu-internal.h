@@ -292,7 +292,9 @@ static inline int restore_fpu_checking(struct task_struct *tsk)
 	   values. "m" is a random variable that should be in L1 */
 	alternative_input(
 		ASM_NOP8 ASM_NOP2,
+#ifndef CONFIG_X86_EARLYMIC
 		"emms\n\t"		/* clear stack tags */
+#endif
 		"fildl %P[addr]",	/* set F?P to defined value */
 		X86_FEATURE_FXSAVE_LEAK,
 		[addr] "m" (tsk->thread.fpu.has_fpu));
