@@ -363,6 +363,8 @@ config X86_MICPCI
 	depends on X86_EXTENDED_PLATFORM
 	select ML1OM if ARCH = "l1om"
 	select MK1OM if ARCH = "k1om"
+	select VIRTIO			# mic_virtblk (out-of-tree) needs the virtio core
+	select VIRTIO_RING
 	select X86_LOCAL_APIC
 	select MMU_NOTIFIER
 	---help---

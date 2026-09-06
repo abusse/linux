@@ -347,7 +347,7 @@ static inline void io_apic_eoi(unsigned int apic, unsigned int vector)
 static inline unsigned int io_apic_read(unsigned int apic, unsigned int reg)
 {
 #ifdef CONFIG_X86_EARLYMIC
-	volatile u32 *io_apic = (volatile u32*) io_apic_base(apic);
+	volatile u32 *io_apic = (volatile u32 *) io_apic_base(apic);
 	return readl((void __iomem *)(io_apic + reg));
 #else
 	struct io_apic __iomem *io_apic = io_apic_base(apic);
@@ -359,7 +359,7 @@ static inline unsigned int io_apic_read(unsigned int apic, unsigned int reg)
 static inline void io_apic_write(unsigned int apic, unsigned int reg, unsigned int value)
 {
 #ifdef CONFIG_X86_EARLYMIC
-	volatile u32 *io_apic = (volatile u32*) io_apic_base(apic);
+	volatile u32 *io_apic = (volatile u32 *) io_apic_base(apic);
 	writel(value, (void __iomem *)(io_apic + reg));
 #else
 	struct io_apic __iomem *io_apic = io_apic_base(apic);
@@ -3165,56 +3165,54 @@ void destroy_irq(unsigned int irq)
 }
 
 #ifdef CONFIG_X86_EARLYMIC
-static void sbox_ack_apic_edge(unsigned int irq)
+/*
+ * SBOX APIC ICR interrupt support (MIC host<->card doorbell IRQs).
+ * Ported from the MPSS 2.6.38 io_apic.c to the 3.0 irq_data-based irq_chip API.
+ */
+static void sbox_ack_apic_edge(struct irq_data *data)
 {
-	struct irq_desc *desc = irq_to_desc(irq);
-
-	irq_complete_move(&desc);
-	move_native_irq(irq);
+	irq_complete_move(data->chip_data);
+	irq_move_irq(data);
 	ack_APIC_irq();
 }
 
-static void mask_sbox_irq(unsigned int irq)
+static void mask_sbox_irq(struct irq_data *data)
 {
 #ifdef CONFIG_MK1OM
-	void *icraddr = get_irq_data(irq);
+	void *icraddr = data->handler_data;
 	u32 value = readl(icraddr);
 	value |= 1 << 16;
 	writel(value, icraddr);
 #endif
 }
 
-static void unmask_sbox_irq(unsigned int irq)
+static void unmask_sbox_irq(struct irq_data *data)
 {
 #ifdef CONFIG_MK1OM
-	void *icraddr = get_irq_data(irq);
+	void *icraddr = data->handler_data;
 	u32 value = readl(icraddr);
 	value &= ~(1 << 16);
 	writel(value, icraddr);
 #endif
 }
-/*
- * IRQ Chip for SBOX APICICR
- */
+
 static struct irq_chip sbox_chip = {
 	.name		= "SBOX-ICR",
-	.unmask		= unmask_sbox_irq,
-	.mask		= mask_sbox_irq,
-	.ack		= sbox_ack_apic_edge,
-	.retrigger	= ioapic_retrigger_irq,
+	.irq_unmask	= unmask_sbox_irq,
+	.irq_mask	= mask_sbox_irq,
+	.irq_ack	= sbox_ack_apic_edge,
+	.irq_retrigger	= ioapic_retrigger_irq,
 };
 
 static void setup_sbox_irq(int irq, int i)
 {
-	int vector;
-	struct irq_desc *desc = irq_to_desc(irq);
+	struct irq_cfg *cfg = irq_get_chip_data(irq);
 	void *icraddr = mic_sbox_mmio_va + SBOX_APICICR0 + (i * 8);
+	int vector = cfg->vector;
 
-	set_irq_chip_and_handler_name(irq, &sbox_chip, handle_edge_irq, "edge");
-	/* IRQ private data */
-	set_irq_data(irq, icraddr);
-	/* Write the vector number, apicid in ICR */
-	vector = ((struct irq_cfg*)(irq_to_desc(irq)->chip_data))->vector;
+	irq_set_chip_and_handler_name(irq, &sbox_chip, handle_edge_irq, "edge");
+	irq_set_handler_data(irq, icraddr);
+	/* Write the vector number and destination apicid into the SBOX ICR */
 	writel(vector, icraddr);
 	writel(boot_cpu_physical_apicid, icraddr + 4);
 	printk("irq %d for SBOX, vector=%d, icr=%u\n", irq, vector, readl(icraddr));
@@ -3223,14 +3221,13 @@ static void setup_sbox_irq(int irq, int i)
 void arch_setup_sbox_irqs(unsigned int *irqs, int n)
 {
 	unsigned int irq;
-	int ret;
 	int node = cpu_to_node(boot_cpu_physical_apicid);
-	/* start from the first free irq */
 	unsigned int irq_want = MIC_NUM_IOAPIC_ENTRIES + 1;
 	int i;
 
+#ifdef CONFIG_INTR_REMAP
 	BUG_ON(intr_remapping_enabled);
-
+#endif
 	for (i = 0; i < n; i++) {
 		irq = create_irq_nr(irq_want, node);
 		BUG_ON(0 == irq);
@@ -3238,7 +3235,8 @@ void arch_setup_sbox_irqs(unsigned int *irqs, int n)
 		irqs[i] = irq;
 	}
 }
-#endif
+#endif /* CONFIG_X86_EARLYMIC */
+
 /*
  * MSI message composition
  */
@@ -4133,10 +4131,15 @@ void __init mp_register_ioapic(int id, u64 address, u32 gsi_base)
 	/*
 	 * The number of IO-APIC IRQ registers (== #pins):
 	 */
+#ifdef CONFIG_X86_EARLYMIC
+	ioapics[idx].nr_registers = MIC_NUM_IOAPIC_ENTRIES;
+	gsi_top = 0;
+#else
 	ioapics[idx].nr_registers = entries;
 
 	if (gsi_cfg->gsi_end >= gsi_top)
 		gsi_top = gsi_cfg->gsi_end + 1;
+#endif
 
 	printk(KERN_INFO "IOAPIC[%d]: apic_id %d, version %d, address 0x%x, "
 	       "GSI %d-%d\n", idx, mpc_ioapic_id(idx),
