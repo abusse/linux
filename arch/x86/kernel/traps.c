@@ -667,6 +667,21 @@ void __init early_trap_init(void)
 	load_idt(&idt_descr);
 }
 
+#ifdef CONFIG_MK1OM
+/* k1om vector mask-register restore (ported from MPSS traps.c; called from FPU paths) */
+void restore_mask_regs(void)
+{
+	struct thread_info *thread = current_thread_info();
+	struct task_struct *tsk = thread->task;
+
+	if (unlikely(mic_restore_mask_regs(tsk))) {
+		force_sig(SIGSEGV, tsk);
+		return;
+	}
+}
+EXPORT_SYMBOL_GPL(restore_mask_regs);
+#endif
+
 void __init trap_init(void)
 {
 	int i;

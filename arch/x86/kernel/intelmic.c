@@ -499,7 +499,7 @@ void __init x86_mic_early_setup(void)
 #endif
 	legacy_pic = &null_legacy_pic;
 	mic_sbox_mmio_va = NULL;
-	no_sync_cmos_clock = 1;
+	/* no_sync_cmos_clock removed in v3.4; KNC set_wallclock (intel_mic_set_wallclock) is a safe no-op */
 }
 
 static inline void assign_to_mp_irq(struct mpc_intsrc *m,

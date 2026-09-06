@@ -66,19 +66,18 @@ static inline void *load_pointer(const struct sk_buff *skb, int k,
 }
 
 /**
- *	sk_filter_trim_cap - run a packet through a socket filter
+ *	sk_filter - run a packet through a socket filter
  *	@sk: sock associated with &sk_buff
  *	@skb: buffer to filter
- *	@cap: limit on how short the eBPF program may trim the packet
  *
- * Run the eBPF program and then cut skb->data to correct size returned by
- * the program. If pkt_len is 0 we toss packet. If skb->len is smaller
+ * Run the filter code and then cut skb->data to correct size returned by
+ * sk_run_filter. If pkt_len is 0 we toss packet. If skb->len is smaller
  * than pkt_len we keep whole skb->data. This is the socket level
- * wrapper to BPF_PROG_RUN. It returns 0 if the packet should
+ * wrapper to sk_run_filter. It returns 0 if the packet should
  * be accepted or -EPERM if the packet should be tossed.
  *
  */
-int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
+int sk_filter(struct sock *sk, struct sk_buff *skb)
 {
 	int err;
 	struct sk_filter *filter;
@@ -92,13 +91,13 @@ int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
 	if (filter) {
 		unsigned int pkt_len = SK_RUN_FILTER(filter, skb);
 
-		err = pkt_len ? pskb_trim(skb, max(cap, pkt_len)) : -EPERM;
+		err = pkt_len ? pskb_trim(skb, pkt_len) : -EPERM;
 	}
 	rcu_read_unlock();
 
 	return err;
 }
-EXPORT_SYMBOL(sk_filter_trim_cap);
+EXPORT_SYMBOL(sk_filter);
 
 /**
  *	sk_run_filter - run a filter on a socket

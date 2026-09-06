@@ -22,9 +22,10 @@
 * is granted herein.
 */
 
+#include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/console.h>
-#include "8250.h"
+#include "8250/8250.h"
 #ifdef	CONFIG_KDB
 #include <linux/kdb.h>
 #endif

@@ -50,10 +50,6 @@
 #define PREFETCH_STRIDE (4*L1_CACHE_BYTES)
 #endif
 
-#ifndef ARCH_HAS_PREFETCH_DST
-#define prefetch_dst(x, cnt, dst)  do {} while (0)
-#endif
-
 static inline void prefetch_range(void *addr, size_t len)
 {
 #ifdef ARCH_HAS_PREFETCH

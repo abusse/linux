@@ -223,7 +223,7 @@ int save_i387_xstate(void __user *buf)
 	if (err) {
 		set_used_math();
 		clts();
-		task_thread_info(tsk)->status |= TS_USEDFPU;
+		__thread_set_has_fpu(tsk);
 		return err;
 	}
 
@@ -372,7 +372,7 @@ clear:
 		} else {
 			set_used_math();
 			clts();
-	 		task_thread_info(tsk)->status |= TS_USEDFPU;
+	 		__thread_set_has_fpu(tsk);
 		}
 #endif
 	}
