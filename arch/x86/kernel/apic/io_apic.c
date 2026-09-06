@@ -102,7 +102,7 @@ int mpc_ioapic_id(int id)
 	return ioapics[id].mp_config.apicid;
 }
 
-unsigned int mpc_ioapic_addr(int id)
+unsigned long mpc_ioapic_addr(int id)
 {
 	return ioapics[id].mp_config.apicaddr;
 }
@@ -4068,7 +4068,7 @@ void __init mp_register_ioapic(int id, u64 address, u32 gsi_base)
 		gsi_top = gsi_cfg->gsi_end + 1;
 #endif
 
-	printk(KERN_INFO "IOAPIC[%d]: apic_id %d, version %d, address 0x%x, "
+	printk(KERN_INFO "IOAPIC[%d]: apic_id %d, version %d, address 0x%lx, "
 	       "GSI %d-%d\n", idx, mpc_ioapic_id(idx),
 	       mpc_ioapic_ver(idx), mpc_ioapic_addr(idx),
 	       gsi_cfg->gsi_base, gsi_cfg->gsi_end);
