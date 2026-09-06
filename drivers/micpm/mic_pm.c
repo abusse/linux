@@ -446,8 +446,8 @@ static int __init mic_pm_init(void)
 		}
 		cpuidle_inited=1;
 		
-	#endif
 	}
+	#endif
 	micpm_global_kobject = kobject_create_and_add("micpm",
 					&cpu_sysdev_class.kset.kobj);
 	BUG_ON(!micpm_global_kobject);

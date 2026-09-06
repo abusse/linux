@@ -86,8 +86,13 @@ struct IO_APIC_route_entry {
 		mask		:  1,	/* 0: enabled, 1: disabled */
 		__reserved_2	: 15;
 
+#ifdef CONFIG_X86_EARLYMIC
+	__u32	dest		:  8,
+		__reserved_3	: 24;
+#else
 	__u32	__reserved_3	: 24,
 		dest		:  8;
+#endif
 } __attribute__ ((packed));
 
 struct IR_IO_APIC_route_entry {
@@ -116,7 +121,7 @@ struct IR_IO_APIC_route_entry {
 extern int nr_ioapics;
 
 extern int mpc_ioapic_id(int ioapic);
-extern unsigned int mpc_ioapic_addr(int ioapic);
+extern unsigned long mpc_ioapic_addr(int ioapic);
 extern struct mp_ioapic_gsi *mp_ioapic_gsi_routing(int ioapic);
 
 #define MP_MAX_IOAPIC_PIN 127
@@ -178,7 +183,7 @@ extern struct mp_ioapic_gsi  mp_gsi_routing[];
 extern u32 gsi_top;
 int mp_find_ioapic(u32 gsi);
 int mp_find_ioapic_pin(int ioapic, u32 gsi);
-void __init mp_register_ioapic(int id, u32 address, u32 gsi_base);
+void __init mp_register_ioapic(int id, u64 address, u32 gsi_base);
 extern void __init pre_init_apic_IRQ0(void);
 
 extern void mp_save_irq(struct mpc_intsrc *m);
