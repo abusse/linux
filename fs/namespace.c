@@ -36,9 +36,6 @@
 #include "pnode.h"
 #include "internal.h"
 
-/* Maximum number of mounts in a mount namespace */
-unsigned int sysctl_mount_max __read_mostly = 100000;
-
 #define HASH_SHIFT ilog2(PAGE_SIZE / sizeof(struct list_head))
 #define HASH_SIZE (1UL << HASH_SHIFT)
 
@@ -640,9 +637,6 @@ static void commit_tree(struct vfsmount *mnt)
 	}
 
 	list_splice(&head, n->list.prev);
-	
-	n->mounts += n->pending_mounts;
-	n->pending_mounts = 0;
 
 	list_add_tail(&mnt->mnt_hash, mount_hashtable +
 				hash(parent, mnt->mnt_mountpoint));
@@ -1247,14 +1241,9 @@ void umount_tree(struct vfsmount *mnt, int propagate, struct list_head *kill)
 		propagate_umount(&tmp_list);
 
 	list_for_each_entry(p, &tmp_list, mnt_hash) {
-		struct mnt_namespace *ns;
 		list_del_init(&p->mnt_expire);
 		list_del_init(&p->mnt_list);
-		ns = p->mnt_ns;
-		if (ns) {
-			ns->mounts--;
-			__touch_mnt_namespace(ns);
-		}
+		__touch_mnt_namespace(p->mnt_ns);
 		p->mnt_ns = NULL;
 		__mnt_make_shortterm(p);
 		list_del_init(&p->mnt_child);
@@ -1545,28 +1534,6 @@ static int invent_group_ids(struct vfsmount *mnt, bool recurse)
 	return 0;
 }
 
-int count_mounts(struct mnt_namespace *ns, struct vfsmount *mnt)
-{
-	unsigned int max = sysctl_mount_max;
-	unsigned int mounts = 0, old, pending, sum;
-	struct vfsmount *p;
-
-	for (p = mnt; p; p = next_mnt(p, mnt))
-		mounts++;
-
-	old = ns->mounts;
-	pending = ns->pending_mounts;
-	sum = old + pending;
-	if ((old > sum) ||
-	    (pending > sum) ||
-	    (max < sum) ||
-	    (mounts > (max - sum)))
-		return -ENOSPC;
-
-	ns->pending_mounts = pending + mounts;
-	return 0;
-}
-
 /*
  *  @source_mnt : mount tree to be attached
  *  @nd         : place the mount tree @source_mnt is attached
@@ -1635,17 +1602,9 @@ static int attach_recursive_mnt(struct vfsmount *source_mnt,
 {
 	LIST_HEAD(tree_list);
 	struct vfsmount *dest_mnt = path->mnt;
-	struct mnt_namespace *ns = dest_mnt->mnt_ns;
 	struct dentry *dest_dentry = path->dentry;
 	struct vfsmount *child, *p;
 	int err;
-
-	/* Is there space to add these mounts to the mount namespace? */
-	if (!parent_path) {
-		err = count_mounts(ns, source_mnt);
-		if (err)
-			goto out;
-	}
 
 	if (IS_MNT_SHARED(dest_mnt)) {
 		err = invent_group_ids(source_mnt, true);
@@ -1683,7 +1642,6 @@ static int attach_recursive_mnt(struct vfsmount *source_mnt,
 	if (IS_MNT_SHARED(dest_mnt))
 		cleanup_group_ids(source_mnt, NULL);
  out:
-	ns->pending_mounts = 0;
 	return err;
 }
 
@@ -2407,8 +2365,6 @@ static struct mnt_namespace *alloc_mnt_ns(void)
 	INIT_LIST_HEAD(&new_ns->list);
 	init_waitqueue_head(&new_ns->poll);
 	new_ns->event = 0;
-	new_ns->mounts = 0;
-	new_ns->pending_mounts = 0;
 	return new_ns;
 }
 
@@ -2523,7 +2479,6 @@ struct mnt_namespace *create_mnt_ns(struct vfsmount *mnt)
 		mnt->mnt_ns = new_ns;
 		__mnt_make_longterm(mnt);
 		new_ns->root = mnt;
-		new_ns->mounts++;
 		list_add(&new_ns->list, &new_ns->root->mnt_list);
 	} else {
 		mntput(mnt);

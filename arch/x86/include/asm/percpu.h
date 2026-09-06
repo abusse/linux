@@ -530,9 +530,11 @@ do {									\
 	__ret;								\
 })
 
+#ifndef CONFIG_MK1OM  /* k1om lacks CMPXCHG16B; use generic percpu fallback */
 #define __this_cpu_cmpxchg_double_8(pcp1, pcp2, o1, o2, n1, n2)		percpu_cmpxchg16b_double(pcp1, o1, o2, n1, n2)
 #define this_cpu_cmpxchg_double_8(pcp1, pcp2, o1, o2, n1, n2)		percpu_cmpxchg16b_double(pcp1, o1, o2, n1, n2)
 #define irqsafe_cpu_cmpxchg_double_8(pcp1, pcp2, o1, o2, n1, n2)	percpu_cmpxchg16b_double(pcp1, o1, o2, n1, n2)
+#endif
 
 #endif
 

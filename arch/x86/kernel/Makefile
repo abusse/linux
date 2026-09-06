@@ -90,6 +90,7 @@ obj-$(CONFIG_PARAVIRT_CLOCK)	+= pvclock.o
 obj-$(CONFIG_PCSPKR_PLATFORM)	+= pcspeaker.o
 obj-$(CONFIG_X86_MICPCI)	+= intelmic.o
 obj-$(CONFIG_MK1OM)		+= mic_etc.o
+obj-$(CONFIG_MK1OM)		+= mic_v30_stubs.o
 obj-$(CONFIG_X86_EARLYMIC)	+= mic_cacheflush.o
 
 microcode-y				:= microcode_core.o

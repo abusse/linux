@@ -12,8 +12,6 @@ struct mnt_namespace {
 	struct list_head	list;
 	wait_queue_head_t poll;
 	int event;
-	unsigned int 	mounts;
-	unsigned int pending_mounts;
 };
 
 struct proc_mounts {

@@ -70,7 +70,6 @@
 #include <linux/init.h>
 #include <linux/crypto.h>
 #include <linux/slab.h>
-#include <linux/nsproxy.h>
 
 #include <net/ip.h>
 #include <net/icmp.h>
@@ -4179,19 +4178,6 @@ SCTP_STATIC int sctp_do_peeloff(struct sctp_association *asoc,
 	struct sctp_af *af;
 	int err = 0;
 
-	/* Do not peel off from one netns to another one. */
-	if (!net_eq(current->nsproxy->net_ns, sock_net(sk)))
-		return -EINVAL;
-
- 	if (!asoc)
- 		return -EINVAL;
-
- 	/* If there is a thread waiting on more sndbuf space for
- 	 * sending on this asoc, it cannot be peeled.
- 	 */
-	if (waitqueue_active(&asoc->wait))
-		return -EBUSY;
-
 	/* An association cannot be branched off from an already peeled-off
 	 * socket, nor is this supported for tcp style sockets.
 	 */
@@ -6433,8 +6419,7 @@ static int sctp_wait_for_sndbuf(struct sctp_association *asoc, long *timeo_p,
 		 */
 		sctp_release_sock(sk);
 		current_timeo = schedule_timeout(current_timeo);
-		if (sk != asoc->base.sk)
-			goto do_error;
+		BUG_ON(sk != asoc->base.sk);
 		sctp_lock_sock(sk);
 
 		*timeo_p = current_timeo;
