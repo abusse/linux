@@ -1532,9 +1532,9 @@ out_unlocked:
 
 static int lo_release(struct gendisk *disk, fmode_t mode)
 {
-	mutex_lock(&loop_devices_mutex);
+	mutex_lock(&loop_index_mutex);
 	__lo_release(disk->private_data);
-	mutex_unlock(&loop_devices_mutex);
+	mutex_unlock(&loop_index_mutex);
 	return 0;
 }
 
