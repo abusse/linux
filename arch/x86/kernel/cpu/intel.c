@@ -71,9 +71,10 @@ static void __cpuinit early_init_intel(struct cpuinfo_x86 *c)
 		(c->x86 == 0x6 && c->x86_model >= 0x0e))
 		set_cpu_cap(c, X86_FEATURE_CONSTANT_TSC);
 
-	if (c->x86 >= 6 && !cpu_has(c, X86_FEATURE_IA64)) {
+	if (c->x86 >= 6 && c->x86 != 11 && !cpu_has(c, X86_FEATURE_IA64)) {
 		unsigned lower_word;
 
+		/* k1om (family 11) has no MSR_IA32_UCODE_REV; the access #GPs */
 		wrmsr(MSR_IA32_UCODE_REV, 0, 0);
 		/* Required by the SDM */
 		sync_core();
