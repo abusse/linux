@@ -1491,10 +1491,8 @@ static int mic_cpufreq_atomic_notifier(struct notifier_block *nb, unsigned long 
 
 	unsigned int param = 0;
 	unsigned long flags;
-	struct clocksource *cs;
 
 	dprintk("mic_cpufreq_atomic_notifier entered with event = %lu\n", event);
-	cs=get_curr_clocksource();
 
 	if (data)
 		param = *((unsigned int *)data);

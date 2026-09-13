@@ -41,7 +41,7 @@
 #include <linux/seq_file.h>
 #include <linux/moduleparam.h>
 #include <linux/sched.h>	
-#include <linux/pm_qos_params.h>
+#include <linux/pm_qos.h>
 #include <linux/clockchips.h>
 #include <linux/cpuidle.h>
 #include <linux/irqflags.h>
@@ -449,7 +449,7 @@ static int __init mic_pm_init(void)
 	}
 	#endif
 	micpm_global_kobject = kobject_create_and_add("micpm",
-					&cpu_sysdev_class.kset.kobj);
+					&cpu_subsys.dev_root->kobj);
 	BUG_ON(!micpm_global_kobject);
 	micpm_sysfs_init();					
 	micpm_proc_init(mic_cpuidle_cc6,mic_cpuidle_pc3,mic_cpuidle_pc6,mic_cpufreq_driver);
