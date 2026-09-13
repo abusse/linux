@@ -881,6 +881,25 @@ static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 		p = table_lookup_model(c);
 		if (p)
 			strcpy(c->x86_model_id, p);
+#ifdef CONFIG_MK1OM
+		else if (c->x86 == 0x0b && c->x86_model == 0x01) {
+			/* KNC exposes no CPUID brand string; name it by stepping. */
+			switch (c->x86_mask) {
+			case 1:
+				strcpy(c->x86_model_id, "Intel Xeon Phi x100 Coprocessor (Knights Corner B0)");
+				break;
+			case 3:
+				strcpy(c->x86_model_id, "Intel Xeon Phi x100 Coprocessor (Knights Corner B1)");
+				break;
+			case 4:
+				strcpy(c->x86_model_id, "Intel Xeon Phi x100 Coprocessor (Knights Corner C0)");
+				break;
+			default:
+				strcpy(c->x86_model_id, "Intel Xeon Phi x100 Coprocessor (Knights Corner)");
+				break;
+			}
+		}
+#endif
 		else
 			/* Last resort... */
 			sprintf(c->x86_model_id, "%02x/%02x",
