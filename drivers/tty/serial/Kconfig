@@ -7,6 +7,12 @@ menu "Serial drivers"
 
 source "drivers/tty/serial/8250/Kconfig"
 
+config SERIAL_8250_SC16IS7XX
+	bool "Console on 8250 _SC16IS7XX"
+	default SERIAL_8250
+	help
+	Support for running 8250 console on SC16IS7XX
+
 comment "Non-8250 serial port support"
 
 config SERIAL_AMBA_PL010

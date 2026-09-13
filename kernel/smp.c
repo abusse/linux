@@ -665,10 +665,43 @@ void __init setup_nr_cpu_ids(void)
 }
 
 /* Called by boot processor to activate the rest. */
+#ifdef CONFIG_PARALLEL_AP_BOOT
+extern int do_check_cpu(int cpu);
+extern int cpu_up_parallel(unsigned int cpu);
+extern void map_cpu_active(unsigned int cpu);
+#endif
+
 void __init smp_init(void)
 {
 	unsigned int cpu;
 
+#ifdef CONFIG_PARALLEL_AP_BOOT
+	{
+	unsigned int ncpu = 0;
+	/* Phase 1: kick every AP (INIT already broadcast); do not wait. */
+	for_each_present_cpu(cpu) {
+		if (ncpu >= setup_max_cpus)
+			break;
+		if (!cpu_online(cpu))
+			cpu_up_parallel(cpu);
+		ncpu++;
+	}
+	/* Phase 2: wait for each AP to check in, then activate it. */
+	ncpu = 0;
+	for_each_present_cpu(cpu) {
+		if (ncpu >= setup_max_cpus)
+			break;
+		if (cpu != 0) {
+			if (!do_check_cpu(cpu)) {
+				map_cpu_active(cpu);
+				ncpu++;
+			}
+		} else {
+			ncpu++;
+		}
+	}
+	}
+#else
 	/* FIXME: This should be done in userspace --RR */
 	for_each_present_cpu(cpu) {
 		if (num_online_cpus() >= setup_max_cpus)
@@ -676,6 +709,7 @@ void __init smp_init(void)
 		if (!cpu_online(cpu))
 			cpu_up(cpu);
 	}
+#endif
 
 	/* Any cleanup work */
 	printk(KERN_INFO "Brought up %ld CPUs\n", (long)num_online_cpus());
