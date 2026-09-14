@@ -425,16 +425,11 @@ static inline void switch_fpu_finish(struct task_struct *new, fpu_switch_t fpu)
 	if (fpu.preload) {
 		if (unlikely(restore_fpu_checking(new)))
 			__thread_fpu_end(new);
-	}
 #ifdef CONFIG_MK1OM
-	if (tsk_used_math(new)) {
-		if (!fpu.preload)
-			clts();
-		restore_mask_regs();
-		if (!fpu.preload)
-			stts();
-	}
+		else
+			restore_mask_regs();	/* FPU loaded; also load KNC VPU mask regs */
 #endif
+	}
 }
 
 /*

@@ -1,0 +1,40 @@
+--- arch/x86/include/asm/i387.h
++++ arch/x86/include/asm/i387.h
+@@ -259,9 +266,26 @@ static inline int fpu_save_init(struct fpu *fpu)
+ 
+ static inline int __save_init_fpu(struct task_struct *tsk)
+ {
++#ifdef CONFIG_X86_EARLYMIC
++	/* KNC: save x87/SSE then the vector/mask (vpu) state. */
++	fpu_fxsave(&tsk->thread.fpu);
++	save_init_vpu(&tsk->thread.fpu.state->xsave);
++	return 1;
++#else
+ 	return fpu_save_init(&tsk->thread.fpu);
++#endif
+ }
+ 
++#ifdef CONFIG_MK1OM
++void restore_mask_regs(void);
++static inline int mic_restore_mask_regs(struct task_struct *tsk)
++{
++	struct xsave_struct *xstate = &tsk->thread.fpu.state->xsave;
++
++	return _mic_restore_mask_regs(xstate);
++}
++#endif
++
+ static inline int fpu_fxrstor_checking(struct fpu *fpu)
+ {
+ 	return fxrstor_checking(&fpu->state->fxsave);
+@@ -282,7 +306,9 @@ static inline int restore_fpu_checking(struct task_struct *tsk)
+ 	   values. "m" is a random variable that should be in L1 */
+ 	alternative_input(
+ 		ASM_NOP8 ASM_NOP2,
+-		"emms\n\t"	  	/* clear stack tags */
++#ifndef CONFIG_X86_EARLYMIC
++		"emms\n\t"		/* clear stack tags */
++#endif
+ 		"fildl %P[addr]",	/* set F?P to defined value */
+ 		X86_FEATURE_FXSAVE_LEAK,
+ 		[addr] "m" (tsk->thread.fpu.has_fpu));
