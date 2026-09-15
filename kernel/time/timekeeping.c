@@ -225,7 +225,7 @@ void getnstimeofday(struct timespec *ts)
 	unsigned long seq;
 	s64 nsecs;
 
-	WARN_ON(timekeeping_suspended);
+	WARN_ON_ONCE(timekeeping_suspended);
 
 	do {
 		seq = read_seqbegin(&timekeeper.lock);
@@ -248,7 +248,7 @@ ktime_t ktime_get(void)
 	unsigned int seq;
 	s64 secs, nsecs;
 
-	WARN_ON(timekeeping_suspended);
+	WARN_ON_ONCE(timekeeping_suspended);
 
 	do {
 		seq = read_seqbegin(&timekeeper.lock);
@@ -283,7 +283,7 @@ void ktime_get_ts(struct timespec *ts)
 	unsigned int seq;
 	s64 nsecs;
 
-	WARN_ON(timekeeping_suspended);
+	WARN_ON_ONCE(timekeeping_suspended);
 
 	do {
 		seq = read_seqbegin(&timekeeper.lock);
@@ -679,7 +679,7 @@ void timekeeping_inject_sleeptime(struct timespec *delta)
  * xtime/wall_to_monotonic/jiffies/etc are
  * still managed by arch specific suspend/resume code.
  */
-static void timekeeping_resume(void)
+void timekeeping_resume(void)
 {
 	unsigned long flags;
 	struct timespec ts;
@@ -708,7 +708,7 @@ static void timekeeping_resume(void)
 	hrtimers_resume();
 }
 
-static int timekeeping_suspend(void)
+int timekeeping_suspend(void)
 {
 	unsigned long flags;
 	struct timespec		delta, delta_delta;
@@ -1128,7 +1128,7 @@ void get_monotonic_boottime(struct timespec *ts)
 	unsigned int seq;
 	s64 nsecs;
 
-	WARN_ON(timekeeping_suspended);
+	WARN_ON_ONCE(timekeeping_suspended);
 
 	do {
 		seq = read_seqbegin(&timekeeper.lock);
