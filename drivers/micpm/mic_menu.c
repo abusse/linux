@@ -33,6 +33,8 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/kernel_stat.h>
 #include <linux/cpuidle.h>
 #include <linux/pm_qos.h>
 #include <linux/time.h>
@@ -324,7 +326,7 @@ static u64 div_round64(u64 dividend, u32 divisor)
 static int mic_test_pc3ready(int cpu)
 {
 	struct pc3record *pr = &__get_cpu_var(pc3data);
-	cputime64_t user = kstat_cpu(cpu).cpustat.user + kstat_cpu(cpu).cpustat.nice;
+	cputime64_t user = kcpustat_cpu(cpu).cpustat[CPUTIME_USER] + kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
 	
 	if(!mic_pkgstate_ready || !pc3policy)
 		return 0;
@@ -378,7 +380,7 @@ static int mic_select(int index, struct menu_device *data, struct cpuidle_device
  * menu_select - selects the next idle state to enter
  * @dev: the CPU
  **/
-static int menu_select(struct cpuidle_device *dev)
+static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev)
 {
 	struct menu_device *data = &__get_cpu_var(menu_devices);
 /*	int latency_req = pm_qos_requirement(PM_QOS_CPU_DMA_LATENCY);  */
@@ -428,7 +430,7 @@ static int menu_select(struct cpuidle_device *dev)
 
 	/* find the deepest idle state that satisfies our constraints */
 	for (i = CPUIDLE_DRIVER_STATE_START; i < dev->state_count; i++) {
-		struct cpuidle_state *s = &dev->states[i];
+		struct cpuidle_state *s = &drv->states[i];
 
 		if (s->target_residency > data->predicted_us)
 			break;
@@ -449,7 +451,7 @@ static int menu_select(struct cpuidle_device *dev)
  * NOTE: it's important to be fast here because this operation will add to
  *       the overall exit latency.
 **/
-static void menu_reflect(struct cpuidle_device *dev)
+static void menu_reflect(struct cpuidle_device *dev, int index)
 {
 	struct menu_device *data = &__get_cpu_var(menu_devices);
 	data->needs_update = 1;
@@ -462,10 +464,11 @@ static void menu_reflect(struct cpuidle_device *dev)
  */
 static void menu_update(struct cpuidle_device *dev)
 {
+	struct cpuidle_driver *drv = cpuidle_get_driver();
 	struct menu_device *data = &__get_cpu_var(menu_devices);
 	int last_idx = data->last_state_idx;
 	unsigned int last_idle_us = cpuidle_get_last_residency(dev);
-	struct cpuidle_state *target = &dev->states[last_idx];
+	struct cpuidle_state *target = &drv->states[last_idx];
 	unsigned int measured_us;
 	u64 new_factor;
 
@@ -536,7 +539,7 @@ static struct notifier_block mic_menu_scif_notifier_block = {
  * menu_enable_device - scans a CPU's states and does setup
  * @dev: the CPU
  */
-static int menu_enable_device(struct cpuidle_device *dev)
+static int menu_enable_device(struct cpuidle_driver *drv, struct cpuidle_device *dev)
 {
 	struct menu_device *data = &per_cpu(menu_devices, dev->cpu);
 

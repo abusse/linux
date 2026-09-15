@@ -33,6 +33,18 @@
  */
 
 #include <linux/kernel.h>
+#include <asm/xsave.h>
+#include <asm/io_apic.h>
+/* Package-state (PC3/PC6) helpers ported to Linux 3.4: */
+extern int timekeeping_suspend(void);
+extern void timekeeping_resume(void);
+extern void watchdog_tsc_enable(void);
+extern void watchdog_tsc_disable(void);
+/* 3.4 save/restore_ioapic_entries() use an internal per-ioapic buffer;
+ * shim the old buffer-based API the MPSS code calls. */
+static inline void *alloc_ioapic_entries(void) { return (void *)1; }
+static inline int save_IO_APIC_setup(void *e) { return save_ioapic_entries(); }
+static inline void restore_IO_APIC_setup(void *e) { restore_ioapic_entries(); }
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/cpufreq.h>
@@ -991,30 +1003,26 @@ static void mic_safe_halt(void)
  *
  **/
 static int __mic_idle_enter_c1(struct cpuidle_device *dev,
-			       struct cpuidle_state *state)
+			       struct cpuidle_driver *drv, int index)
 {
-	ktime_t kt1, kt2;
-	unsigned long idle_time = 1000;
-
-	kt1 = ktime_get_real();
+	/* No ktime here: the cpuidle core measures residency, and reading time
+	 * inside the halt can land in the PC3 window where timekeeping is
+	 * suspended (timekeeping.c getnstimeofday/ktime_get WARN). */
 	mic_safe_halt();
-	kt2 = ktime_get_real();
-	idle_time = ktime_to_us(ktime_sub(kt2, kt1));
-	return idle_time;
+	return index;
 }
 
 static unsigned int idle_count[MAX_CPUS];
 
 static int mic_idle_enter_c1(struct cpuidle_device *dev,
-			     struct cpuidle_state *state)
+			     struct cpuidle_driver *drv, int index)
 {
-	unsigned long idle_time;
 	int cpu = dev->cpu;
 
 	idle_count[cpu]++;
-	idle_time = __mic_idle_enter_c1(dev, state);
+	__mic_idle_enter_c1(dev, drv, index);
 	local_irq_enable();
-	return idle_time;
+	return index;
 }
 
 /*
@@ -1201,14 +1209,14 @@ static inline void start_lapictimer(void)
 *mic_idle_enter_cc6 - Core C6 idle state handler for cpu.  
 **/
 static int mic_idle_enter_cc6(struct cpuidle_device *dev,
-			      struct cpuidle_state *state)
+			      struct cpuidle_driver *drv, int index)
 {
 	unsigned long idle_time=0;
 	ktime_t kt1;
 	int cpu = dev->cpu;
 
 	if (!corec6_allowed(cpu)) {
-		return (mic_idle_enter_c1(dev, state));
+		return mic_idle_enter_c1(dev, drv, index);
 	}
 	current_thread_info()->status &= ~TS_POLLING;
 	/*
@@ -1219,19 +1227,19 @@ static int mic_idle_enter_cc6(struct cpuidle_device *dev,
 	if (!need_resched()) {
 		idle_count[cpu]++;
 		kt1 = ktime_get_real();
-		__mic_idle_enter_c6(dev, state, 0);
+		__mic_idle_enter_c6(dev, &mic_cpuidle_driver.states[index], 0);
 		idle_time = ktime_to_us(ktime_sub(ktime_get_real(), kt1));
 	}
 	current_thread_info()->status |= TS_POLLING;
 	local_irq_enable();
-	return idle_time;
+	return index;
 }
 
 /**
 * mic_idle_enter_pc3 - Package C3 idle state handler for cpu.  
 **/
 static int mic_idle_enter_pc3(struct cpuidle_device *dev,
-			      struct cpuidle_state *state)
+			      struct cpuidle_driver *drv, int index)
 {
 
 	int idle_time=0, pc3cpus;
@@ -1243,7 +1251,7 @@ static int mic_idle_enter_pc3(struct cpuidle_device *dev,
 	int flush = 0;
 	
 	if(!pkgstate_ready)
-		return(mic_idle_enter_c1(dev,state));
+		return mic_idle_enter_c1(dev, drv, index);
 	
 	current_thread_info()->status &= ~TS_POLLING;
 	smp_mb();
@@ -1276,7 +1284,7 @@ static int mic_idle_enter_pc3(struct cpuidle_device *dev,
 	/* Don't allow cpu 0 and its siblings to go to CC6 - 
  	 * it needs to handle MC events. */
 	if(corec6_allowed(cpu)) {
-		retval = __mic_idle_enter_c6(dev, state, flush);
+		retval = __mic_idle_enter_c6(dev, &mic_cpuidle_driver.states[index], flush);
 	} else {
 		/* Save cpu state       */
 		if(pc6_through_pc3()) {
@@ -1284,7 +1292,7 @@ static int mic_idle_enter_pc3(struct cpuidle_device *dev,
 			retval = do_cc6entry_lowlevel(cc6_cntxt[apicid], 1);	//always flush cache
 		}
 		else {
-			__mic_idle_enter_c1(dev,state);
+			__mic_idle_enter_c1(dev, drv, index);
 			retval = MIC_STATE_C1;
 		}	
 	}
@@ -1376,7 +1384,7 @@ static int mic_idle_enter_pc3(struct cpuidle_device *dev,
 bail:
 	current_thread_info()->status |= TS_POLLING;
 	local_irq_enable();
-	return (idle_time);
+	return index;
 }
 
 /**
@@ -1385,33 +1393,32 @@ bail:
  * and PC6 are done by the governor with per-cpu idlness data 
  * all the three could potentially result in a package wide idle state.
 **/
-static int mic_setup_cpuidle(struct cpuidle_device *dev, int cpu)
+static int mic_setup_driver_states(void)
 {
 	int i, count = CPUIDLE_DRIVER_STATE_START, k;
 	struct cpuidle_state *state;
 	int max_cstate = MAX_KNC_CSTATES;
 	struct mic_cpuidle_states *cx;
 
-	dev->cpu = cpu;
 	for (i = 0; i < CPUIDLE_STATE_MAX; i++) {
-		dev->states[i].name[0] = '\0';
-		dev->states[i].desc[0] = '\0';
+		mic_cpuidle_driver.states[i].name[0] = '\0';
+		mic_cpuidle_driver.states[i].desc[0] = '\0';
 	}
 	for (i = CPUIDLE_DRIVER_STATE_START, k = 1; k <= max_cstate; k++) {
-		state = &dev->states[i];
+		state = &mic_cpuidle_driver.states[i];
 		state->flags = 0;
 		switch (k) {
 		case MIC_STATE_C1:
 			state->flags =
-			    CPUIDLE_FLAG_SHALLOW | CPUIDLE_FLAG_TIME_VALID;
+			    CPUIDLE_FLAG_TIME_VALID;
 			state->enter = mic_idle_enter_c1;
-			dev->safe_state = state;
+			mic_cpuidle_driver.safe_state_index = i;
 			break;
 		case MIC_STATE_C6:
 			if (!mic_cc6_on)
 				continue;
 			state->flags =
-			    CPUIDLE_FLAG_DEEP | CPUIDLE_FLAG_TIME_VALID;
+			    CPUIDLE_FLAG_TIME_VALID;
 			state->enter = mic_idle_enter_cc6;
 			break;
 
@@ -1419,8 +1426,7 @@ static int mic_setup_cpuidle(struct cpuidle_device *dev, int cpu)
 			if (!mic_pc3_on)
 				continue;
 			state->flags =
-			    CPUIDLE_FLAG_SHALLOW | CPUIDLE_FLAG_TIME_VALID |
-			    CPUIDLE_FLAG_PKGSTATE;
+			    CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_PKGSTATE;
 			state->enter = mic_idle_enter_pc3;
 			break;
 		}
@@ -1436,7 +1442,7 @@ static int mic_setup_cpuidle(struct cpuidle_device *dev, int cpu)
 		if (count == CPUIDLE_STATE_MAX)
 			break;
 	}
-	dev->state_count = count;
+	mic_cpuidle_driver.state_count = count;
 	if (!count)
 		return -EINVAL;
 	return 0;
@@ -1469,6 +1475,14 @@ int __init mic_cpuidle_init(int cc6, int pc3, int pc6)
 	mic_cc6_on = cc6;
 	mic_pc3_on = pc3;
 	mic_pc6_on = pc6;
+	if (mic_cc6_on && boot_cpu_data.x86_mask != KNC_C_STEP)
+		mic_cc6_on = 0;
+	if (mic_pc6_on && boot_cpu_data.x86_mask != KNC_C_STEP)
+		mic_pc6_on = 0;
+	if (mic_setup_driver_states() < 0) {
+		printk(KERN_DEBUG PREFIX "No cpuidle states to register\n");
+		return -EINVAL;
+	}
 
 	dprintk("Registering cpuidle driver\n");
 	result = cpuidle_register_driver(&mic_cpuidle_driver);
@@ -1518,8 +1532,7 @@ int __init mic_cpuidle_init(int cc6, int pc3, int pc6)
 			goto fail;
 		cpumask_set_cpu(cpu, regdevices);
 		per_cpu(pcidle, cpu) = cidle;
-		if (mic_setup_cpuidle(cidle, cpu))
-			goto fail;
+		cidle->cpu = cpu;
 		if (cpuidle_register_device(cidle)) {
 			printk(KERN_DEBUG PREFIX
 			       "Failed to register cpuidle device");
