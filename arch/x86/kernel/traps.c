@@ -614,6 +614,10 @@ void math_state_restore(void)
 		force_sig(SIGSEGV, tsk);
 		return;
 	}
+#ifdef CONFIG_MK1OM
+	/* FPU regs just loaded lazily; complete the restore with KNC VPU mask regs */
+	restore_mask_regs();
+#endif
 
 	tsk->fpu_counter++;
 }

@@ -420,10 +420,20 @@ static inline void switch_fpu_finish(struct task_struct *new, fpu_switch_t fpu)
 			__thread_fpu_end(new);
 	}
 #ifdef CONFIG_MK1OM
-	if (tsk_used_math(new)) {
+	/*
+	 * KNC: kmov (mask-register access) does NOT trap on CR0.TS, so a lazily
+	 * scheduled task would read the previous task's stale mask registers.
+	 * Restore them eagerly on every switch to a used_math task whose FPU state
+	 * is allocated (the NULL guard avoids the fresh-task crash that the plain
+	 * MPSS code hit under lazy-FPU); clts/stts so kmov works while the FPU data
+	 * regs stay lazy.
+	 */
+	if (tsk_used_math(new) && new->thread.fpu.state) {
 		if (!fpu.preload)
 			clts();
-		restore_mask_regs();
+		/* low-level restore: returns err, never force_sig (we are in the
+		 * atomic context-switch path; a fault must not sleep/signal here) */
+		mic_restore_mask_regs(new);
 		if (!fpu.preload)
 			stts();
 	}
