@@ -2,6 +2,11 @@
 
 #include <linux/perf_event.h>
 #include <linux/types.h>
+#include <linux/slab.h>
+#include <linux/export.h>
+#include <asm/hardirq.h>
+#include <asm/apic.h>
+#include "perf_event.h"
 
 static const u64 knc_perfmon_event_map[] =
 {
@@ -283,7 +288,7 @@ again:
 
 		data.period = event->hw.last_period;
 
-		if (perf_event_overflow(event, 1, &data, regs))
+		if (perf_event_overflow(event, &data, regs))
 		  x86_pmu_stop(event, 0);
 	}
 
@@ -302,6 +307,15 @@ done:
 	return 1;
 }
 
+
+PMU_FORMAT_ATTR(event, "config:0-7");
+PMU_FORMAT_ATTR(umask, "config:8-15");
+
+static struct attribute *knc_formats_attr[] = {
+	&format_attr_event.attr,
+	&format_attr_umask.attr,
+	NULL,
+};
 
 static __initconst const struct x86_pmu knc_pmu = {
 	.name			= "knc",
@@ -324,6 +338,7 @@ static __initconst const struct x86_pmu knc_pmu = {
 	.cntval_mask		= (1ULL << 40) - 1,
 	.get_event_constraints	= x86_get_event_constraints,
 	.event_constraints	= knc_event_constraints,
+	.format_attrs		= knc_formats_attr,
 };
 
 __init int knc_pmu_init(void)
