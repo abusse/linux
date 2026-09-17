@@ -639,6 +639,19 @@ NEXT_PAGE(early_dynamic_pgts)
 #ifndef CONFIG_XEN
 NEXT_PAGE(init_level4_pgt)
 	.fill	512,8,0
+#ifdef CONFIG_MK1OM
+/*
+ * v3.10's non-Xen boot builds identity maps at runtime via early_dynamic_pgts and
+ * no longer provides a static level3_ident_pgt. The KNC CC6/PC6 resume trampolines
+ * (C-step only) still expect one to seed their low-memory identity page tables, so
+ * provide the same static identity L3/L2 the Xen path uses (maps the first 1G).
+ */
+NEXT_PAGE(level3_ident_pgt)
+	.quad	level2_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
+	.fill	511, 8, 0
+NEXT_PAGE(level2_ident_pgt)
+	PMDS(0, __PAGE_KERNEL_IDENT_LARGE_EXEC, PTRS_PER_PMD)
+#endif
 #else
 NEXT_PAGE(init_level4_pgt)
 	.quad   level3_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
