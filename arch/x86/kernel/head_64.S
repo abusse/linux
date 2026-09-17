@@ -698,6 +698,21 @@ SYM_DATA_START_PTI_ALIGNED(init_top_pgt)
 	.fill	512,8,0
 	.fill	PTI_USER_PGD_FILL,8,0
 SYM_DATA_END(init_top_pgt)
+#ifdef CONFIG_MK1OM
+/*
+ * The non-Xen boot builds identity maps at runtime via early_dynamic_pgts and
+ * provides no static level3_ident_pgt. The KNC CC6/PC6 resume trampolines
+ * (C-step only) still expect one to seed their low-memory identity page tables,
+ * so provide the same static identity L3/L2 the Xen path uses (first 1G).
+ */
+SYM_DATA_START_PAGE_ALIGNED(level3_ident_pgt)
+	.quad	level2_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE_NOENC
+	.fill	511, 8, 0
+SYM_DATA_END(level3_ident_pgt)
+SYM_DATA_START_PAGE_ALIGNED(level2_ident_pgt)
+	PMDS(0, __PAGE_KERNEL_IDENT_LARGE_EXEC, PTRS_PER_PMD)
+SYM_DATA_END(level2_ident_pgt)
+#endif
 #endif
 
 #ifdef CONFIG_X86_5LEVEL
