@@ -68,6 +68,8 @@
 #include <linux/init.h>
 #include <linux/sfi.h>
 #include <linux/slab.h>
+#include <linux/memblock.h>
+#include <asm/pgalloc.h>
 
 #include "sfi_core.h"
 
@@ -97,6 +99,8 @@ static u32 sfi_use_ioremap __read_mostly;
  */
 static void __iomem * __ref sfi_map_memory(u64 phys, u32 size)
 {
+	pr_emerg("Entering sfi_map_memory, phys = %llx, size = %d\n", phys, size);
+
 	if (!phys || !size)
 		return NULL;
 
@@ -166,10 +170,14 @@ struct sfi_table_header *sfi_map_table(u64 pa)
 	struct sfi_table_header *th;
 	u32 length;
 
+	pr_emerg("Entering sfi_map_table, pa = %llx\n", pa);
+
 	if (!TABLE_ON_PAGE(syst_pa, pa, sizeof(struct sfi_table_header)))
 		th = sfi_map_memory(pa, sizeof(struct sfi_table_header));
 	else
 		th = (void *)syst_va + (pa - syst_pa);
+
+	pr_emerg("sfi_map_table, th = %llx\n", (u64)th);
 
 	 /* If table fits on same page as its header, we are done */
 	if (TABLE_ON_PAGE(th, th, th->len))
@@ -474,7 +482,10 @@ static int __init sfi_sysfs_init(void)
 	for (i = 0; i < tbl_cnt; i++)
 		sfi_sysfs_install_table(syst_va->pentry[i]);
 
+#ifndef CONFIG_X86_EARLYMIC
+	/* Fails without ACPI */
 	sfi_acpi_sysfs_init();
+#endif
 	kobject_uevent(sfi_kobj, KOBJ_ADD);
 	kobject_uevent(tables_kobj, KOBJ_ADD);
 	pr_info("SFI sysfs interfaces init success\n");
@@ -509,6 +520,12 @@ void __init sfi_init_late(void)
 
 	/* Use ioremap now after it is ready */
 	sfi_use_ioremap = 1;
+#ifdef CONFIG_X86_EARLYMIC
+	/* E820 does not mark page reserved */
+	memblock_reserve(0x92000, PAGE_SIZE);
+	/* needed for ioremap */
+	SetPageReserved(pfn_to_page(0x92));
+#endif
 	syst_va = sfi_map_memory(syst_pa, length);
 
 	sfi_acpi_init();
