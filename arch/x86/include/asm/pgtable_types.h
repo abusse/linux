@@ -34,6 +34,9 @@
 #define _PAGE_BIT_CPA_TEST	_PAGE_BIT_SOFTW1
 #define _PAGE_BIT_SOFT_DIRTY	_PAGE_BIT_SOFTW3 /* software dirty tracking */
 #define _PAGE_BIT_DEVMAP	_PAGE_BIT_SOFTW4
+#ifdef CONFIG_X86_EARLYMIC
+#define _PAGE_BIT_64K		51	/* KNC 64K page PTE bit */
+#endif
 
 /* If _PAGE_BIT_PRESENT is clear, we use these: */
 /* - if the user mapped it with PROT_NONE; pte_present gives true */
@@ -109,6 +112,9 @@
 #define _PAGE_DEVMAP	(_AT(pteval_t, 0))
 #endif
 
+#ifdef CONFIG_X86_EARLYMIC
+#define _PAGE_SIZE_64K	(_AT(pteval_t, 1) << _PAGE_BIT_64K)
+#endif
 #define _PAGE_PROTNONE	(_AT(pteval_t, 1) << _PAGE_BIT_PROTNONE)
 
 #define _PAGE_TABLE_NOENC	(_PAGE_PRESENT | _PAGE_RW | _PAGE_USER |\

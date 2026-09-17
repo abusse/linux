@@ -1014,7 +1014,11 @@ ENTRY(native_load_gs_index)
 	SWAPGS
 .Lgs_change:
 	movl	%edi, %gs
+#ifdef CONFIG_X86_EARLYMIC
+2:
+#else
 2:	ALTERNATIVE "", "mfence", X86_BUG_SWAPGS_FENCE
+#endif
 	SWAPGS
 	TRACE_IRQS_FLAGS (%rsp)
 	popfq

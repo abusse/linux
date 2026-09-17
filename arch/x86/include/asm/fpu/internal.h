@@ -20,6 +20,9 @@
 #include <asm/fpu/xstate.h>
 #include <asm/cpufeature.h>
 #include <asm/trace/fpu.h>
+#ifdef CONFIG_X86_EARLYMIC
+#include <asm/mic_ni.h>
+#endif
 
 /*
  * High level FPU state handling functions:
@@ -66,6 +69,10 @@ static __always_inline __pure bool use_xsaveopt(void)
 
 static __always_inline __pure bool use_xsave(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* No XSAVE, but the VPU state rides in the xstate layout/sigframe. */
+	return 1;
+#endif
 	return static_cpu_has(X86_FEATURE_XSAVE);
 }
 
@@ -99,7 +106,12 @@ static inline void fpstate_init_xstate(struct xregs_state *xsave)
 static inline void fpstate_init_fxstate(struct fxregs_state *fx)
 {
 	fx->cwd = 0x37f;
+#ifdef CONFIG_MK1OM
+	/* KNC VXCSR: the 0x1f80 default bits are MBZ, DUE (bit 21) must be set. */
+	fx->mxcsr = VXCSR_DEFAULT;
+#else
 	fx->mxcsr = MXCSR_DEFAULT;
+#endif
 }
 extern void fpstate_sanitize_xstate(struct fpu *fpu);
 
@@ -132,13 +144,25 @@ static inline int copy_fregs_to_user(struct fregs_state __user *fx)
 
 static inline int copy_fxregs_to_user(struct fxregs_state __user *fx)
 {
-	if (IS_ENABLED(CONFIG_X86_32))
-		return user_insn(fxsave %[fx], [fx] "=m" (*fx), "m" (*fx));
-	else if (IS_ENABLED(CONFIG_AS_FXSAVEQ))
-		return user_insn(fxsaveq %[fx], [fx] "=m" (*fx), "m" (*fx));
+	int err;
 
-	/* See comment in copy_fxregs_to_kernel() below. */
-	return user_insn(rex64/fxsave (%[fx]), "=m" (*fx), [fx] "R" (fx));
+	if (IS_ENABLED(CONFIG_X86_32))
+		err = user_insn(fxsave %[fx], [fx] "=m" (*fx), "m" (*fx));
+	else if (IS_ENABLED(CONFIG_AS_FXSAVEQ))
+		err = user_insn(fxsaveq %[fx], [fx] "=m" (*fx), "m" (*fx));
+	else	/* See comment in copy_fxregs_to_kernel() below. */
+		err = user_insn(rex64/fxsave (%[fx]), "=m" (*fx), [fx] "R" (fx));
+#ifdef CONFIG_MK1OM
+	/* KNC errata: MXCSR.DUE (bit 21) must be 1 or the later fxrstor faults. */
+	if (!err) {
+		u32 mxcsr;
+
+		if (__get_user(mxcsr, &fx->mxcsr) ||
+		    __put_user(mxcsr | VXCSR_DEFAULT, &fx->mxcsr))
+			err = -EFAULT;
+	}
+#endif
+	return err;
 }
 
 static inline void copy_kernel_to_fxregs(struct fxregs_state *fx)
@@ -409,6 +433,12 @@ static inline int copy_user_to_xregs(struct xregs_state __user *buf, u64 mask)
  */
 static inline int copy_fpregs_to_fpstate(struct fpu *fpu)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* KNC: fxsave the x87 state, then store the vector/mask/VXCSR block. */
+	copy_fxregs_to_kernel(fpu);
+	save_init_vpu(&fpu->state.xsave);
+	return 1;
+#endif
 	if (likely(use_xsave())) {
 		copy_xregs_to_kernel(&fpu->state.xsave);
 		return 1;
@@ -430,6 +460,16 @@ static inline int copy_fpregs_to_fpstate(struct fpu *fpu)
 
 static inline void __copy_kernel_to_fpregs(union fpregs_state *fpstate, u64 mask)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	copy_kernel_to_fxregs(&fpstate->fxsave);
+#ifdef CONFIG_ML1OM
+	WARN_ON_FPU(restore_vpu_checking(&fpstate->xsave.vpu));
+#else
+	/* Mask registers are reloaded separately (restore_mask_regs). */
+	WARN_ON_FPU(restore_vpu_checking_nomask(&fpstate->xsave.vpu));
+#endif
+	return;
+#endif
 	if (use_xsave()) {
 		copy_kernel_to_xregs(&fpstate->xsave, mask);
 	} else {
@@ -450,7 +490,9 @@ static inline void copy_kernel_to_fpregs(union fpregs_state *fpstate)
 	if (unlikely(static_cpu_has_bug(X86_BUG_FXSAVE_LEAK))) {
 		asm volatile(
 			"fnclex\n\t"
-			"emms\n\t"
+#ifndef CONFIG_X86_EARLYMIC
+			"emms\n\t"		/* KNC has no MMX */
+#endif
 			"fildl %P[addr]"	/* set F?P to defined value */
 			: : [addr] "m" (fpstate));
 	}
@@ -459,6 +501,14 @@ static inline void copy_kernel_to_fpregs(union fpregs_state *fpstate)
 }
 
 extern int copy_fpstate_to_sigframe(void __user *buf, void __user *fp, int size);
+
+#ifdef CONFIG_MK1OM
+void restore_mask_regs(void);
+static inline int mic_restore_mask_regs(struct fpu *fpu)
+{
+	return __mic_restore_mask_regs(&fpu->state.xsave.vpu);
+}
+#endif
 
 /*
  * FPU context switch related helper methods:
@@ -558,6 +608,11 @@ static inline void switch_fpu_finish(struct fpu *new_fpu, int cpu)
 			copy_kernel_to_fpregs(&new_fpu->state);
 		fpregs_activate(new_fpu);
 	}
+#ifdef CONFIG_MK1OM
+	/* The VPU data restore leaves the mask registers alone; reload them. */
+	if (new_fpu->initialized)
+		mic_restore_mask_regs(new_fpu);
+#endif
 }
 
 /*
