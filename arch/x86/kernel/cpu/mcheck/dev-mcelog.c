@@ -30,11 +30,14 @@ static char *mce_helper_argv[2] = { mce_helper, NULL };
  * separate MCEs from kernel messages to avoid bogus bug reports.
  */
 
-static struct mce_log_buffer mcelog = {
+struct mce_log_buffer mcelog = {
 	.signature	= MCE_LOG_SIGNATURE,
 	.len		= MCE_LOG_LEN,
 	.recordlen	= sizeof(struct mce),
 };
+#ifdef CONFIG_X86_EARLYMIC
+EXPORT_SYMBOL_GPL(mcelog);	/* micras scans it for new events */
+#endif
 
 static DECLARE_WAIT_QUEUE_HEAD(mce_chrdev_wait);
 
