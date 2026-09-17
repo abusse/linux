@@ -137,6 +137,17 @@ static inline int copy_fpregs_to_sigframe(struct xregs_state __user *buf)
 {
 	int err;
 
+#ifdef CONFIG_X86_EARLYMIC
+	/* KNC: fxsave plus the VPU block; zero the header like xsave would. */
+	err = __clear_user(&buf->header, sizeof(buf->header));
+	if (!err)
+		err = copy_fxregs_to_user(&buf->i387);
+	if (!err)
+		err = save_vpu_checking((struct vpustate_struct __force *)&buf->vpu);
+	if (unlikely(err) && __clear_user(buf, fpu_user_xstate_size))
+		err = -EFAULT;
+	return err;
+#endif
 	if (use_xsave())
 		err = xsave_to_user_sigframe(buf);
 	else if (use_fxsr())

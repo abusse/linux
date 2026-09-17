@@ -98,6 +98,12 @@ EXPORT_SYMBOL(irq_fpu_usable);
  */
 void save_fpregs_to_fpstate(struct fpu *fpu)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* KNC: fxsave the x87 state, then store the vector/mask/VXCSR block. */
+	copy_fxregs_to_kernel(fpu);
+	save_init_vpu(&fpu->state.xsave);
+	return 1;
+#endif
 	if (likely(use_xsave())) {
 		os_xsave(&fpu->state.xsave);
 
@@ -244,6 +250,9 @@ void fpstate_init(union fpregs_state *state)
 		fpstate_init_fxstate(&state->fxsave);
 	else
 		fpstate_init_fstate(&state->fsave);
+#ifdef CONFIG_X86_EARLYMIC
+	state->xsave.vpu.vxcsr = VXCSR_DEFAULT;
+#endif
 }
 EXPORT_SYMBOL_GPL(fpstate_init);
 

@@ -512,6 +512,23 @@ static void clocksource_resume_watchdog(void)
 	atomic_inc(&watchdog_reset_pending);
 }
 
+/* KNC package-C3/C6 stops the TSC; pause the clocksource watchdog around it. */
+void watchdog_tsc_disable(void)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&watchdog_lock, flags);
+	clocksource_stop_watchdog();
+	spin_unlock_irqrestore(&watchdog_lock, flags);
+}
+void watchdog_tsc_enable(void)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&watchdog_lock, flags);
+	clocksource_resume_watchdog();	/* skip one check for drift */
+	clocksource_start_watchdog();
+	spin_unlock_irqrestore(&watchdog_lock, flags);
+}
+
 static void clocksource_enqueue_watchdog(struct clocksource *cs)
 {
 	INIT_LIST_HEAD(&cs->wd_list);
@@ -632,6 +649,8 @@ static void clocksource_enqueue_watchdog(struct clocksource *cs)
 static void clocksource_select_watchdog(bool fallback) { }
 static inline void clocksource_dequeue_watchdog(struct clocksource *cs) { }
 static inline void clocksource_resume_watchdog(void) { }
+void watchdog_tsc_disable(void) { }
+void watchdog_tsc_enable(void) { }
 static inline int __clocksource_watchdog_kthread(void) { return 0; }
 static bool clocksource_is_watchdog(struct clocksource *cs) { return false; }
 void clocksource_mark_unstable(struct clocksource *cs) { }

@@ -22,6 +22,9 @@
 #include <asm/fpu/xcr.h>
 #include <asm/cpufeature.h>
 #include <asm/trace/fpu.h>
+#ifdef CONFIG_X86_EARLYMIC
+#include <asm/mic_ni.h>
+#endif
 
 /*
  * High level FPU state handling functions:
@@ -66,6 +69,10 @@ static __always_inline __pure bool use_xsaveopt(void)
 
 static __always_inline __pure bool use_xsave(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* No XSAVE, but the VPU state rides in the xstate layout/sigframe. */
+	return 1;
+#endif
 	return static_cpu_has(X86_FEATURE_XSAVE);
 }
 
@@ -136,11 +143,23 @@ static inline int fnsave_to_user_sigframe(struct fregs_state __user *fx)
 
 static inline int fxsave_to_user_sigframe(struct fxregs_state __user *fx)
 {
-	if (IS_ENABLED(CONFIG_X86_32))
-		return user_insn(fxsave %[fx], [fx] "=m" (*fx), "m" (*fx));
-	else
-		return user_insn(fxsaveq %[fx], [fx] "=m" (*fx), "m" (*fx));
+	int err;
 
+	if (IS_ENABLED(CONFIG_X86_32))
+		err = user_insn(fxsave %[fx], [fx] "=m" (*fx), "m" (*fx));
+	else
+		err = user_insn(fxsaveq %[fx], [fx] "=m" (*fx), "m" (*fx));
+#ifdef CONFIG_MK1OM
+	/* KNC errata: MXCSR.DUE (bit 21) must be 1 or the later fxrstor faults. */
+	if (!err) {
+		u32 mxcsr;
+
+		if (__get_user(mxcsr, &fx->mxcsr) ||
+		    __put_user(mxcsr | VXCSR_DEFAULT, &fx->mxcsr))
+			err = -EFAULT;
+	}
+#endif
+	return err;
 }
 
 static inline void fxrstor(struct fxregs_state *fx)
@@ -397,6 +416,14 @@ static inline void restore_fpregs_from_fpstate(union fpregs_state *fpstate)
 }
 
 extern int copy_fpstate_to_sigframe(void __user *buf, void __user *fp, int size);
+
+#ifdef CONFIG_MK1OM
+void restore_mask_regs(void);
+static inline int mic_restore_mask_regs(struct fpu *fpu)
+{
+	return __mic_restore_mask_regs(&fpu->state.xsave.vpu);
+}
+#endif
 
 /*
  * FPU context switch related helper methods:

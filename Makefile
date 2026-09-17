@@ -394,6 +394,12 @@ endif
 ifeq ($(ARCH),x86_64)
         SRCARCH := x86
 endif
+ifeq ($(ARCH),l1om)
+        SRCARCH := x86
+endif
+ifeq ($(ARCH),k1om)
+        SRCARCH := x86
+endif
 
 # Additional ARCH settings for sparc
 ifeq ($(ARCH),sparc32)
@@ -1116,6 +1122,7 @@ export MODULES_NSDEPS := $(extmod_prefix)modules.nsdeps
 
 ifeq ($(KBUILD_EXTMOD),)
 core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
+core-$(CONFIG_KDB) += kdb/
 
 vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, \
 		     $(core-y) $(core-m) $(drivers-y) $(drivers-m) \

@@ -731,7 +731,11 @@ SYM_FUNC_START(asm_load_gs_index)
 	swapgs
 .Lgs_change:
 	movl	%edi, %gs
+#ifdef CONFIG_X86_EARLYMIC
+2:
+#else
 2:	ALTERNATIVE "", "mfence", X86_BUG_SWAPGS_FENCE
+#endif
 	swapgs
 	FRAME_END
 	ret
