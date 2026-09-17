@@ -100,10 +100,11 @@ void sc16is_serial_out(struct uart_port *port, int offset, int value)
 extern struct uart_port kdb_uart_port;
 extern int kdb_serial_line;
 
-static int __devinit sc16is7xx_probe(struct i2c_client *client,
+static int sc16is7xx_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
 	struct uart_port port;
+	struct uart_8250_port up;
 	int error = 0;
 	memset(&port, 0, sizeof(struct uart_port));
 	/* Setup the port data structure */
@@ -129,7 +130,9 @@ static int __devinit sc16is7xx_probe(struct i2c_client *client,
 	//if (early_serial_setup(&port) < 0) {
 	//	printk(KERN_INFO "BAW fail 1\n");
 	//}
-	error = serial8250_register_port(&port);
+	memset(&up, 0, sizeof(up));
+	up.port = port;
+	error = serial8250_register_8250_port(&up);
 	printk(KERN_INFO "8250 UART MIC Port error %d\n", error);
 
 #ifdef	CONFIG_KDB
@@ -173,7 +176,7 @@ static const struct i2c_device_id sc16is7xx_id[] = {
 	{ }
 };
 
-extern int __devinit sc16is7xx_probe(struct i2c_client *client,
+extern int sc16is7xx_probe(struct i2c_client *client,
 		const struct i2c_device_id *id);
 
 static struct i2c_driver sc16is7xx_driver = {
