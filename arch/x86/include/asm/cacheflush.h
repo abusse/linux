@@ -3,6 +3,10 @@
 #define _ASM_X86_CACHEFLUSH_H
 
 #include <linux/mm.h>
+#ifdef CONFIG_X86_EARLYMIC
+void mic_flush_icache(void);
+void mic_icache_dirty(struct page *page);
+#endif
 
 /* Caches aren't brain-dead on the intel. */
 #include <asm-generic/cacheflush.h>

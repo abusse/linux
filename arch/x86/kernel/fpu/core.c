@@ -94,6 +94,12 @@ EXPORT_SYMBOL(irq_fpu_usable);
  */
 int copy_fpregs_to_fpstate(struct fpu *fpu)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* KNC: fxsave the x87 state, then store the vector/mask/VXCSR block. */
+	copy_fxregs_to_kernel(fpu);
+	save_init_vpu(&fpu->state.xsave);
+	return 1;
+#endif
 	if (likely(use_xsave())) {
 		copy_xregs_to_kernel(&fpu->state.xsave);
 
@@ -206,6 +212,9 @@ void fpstate_init(union fpregs_state *state)
 		fpstate_init_fxstate(&state->fxsave);
 	else
 		fpstate_init_fstate(&state->fsave);
+#ifdef CONFIG_X86_EARLYMIC
+	state->xsave.vpu.vxcsr = VXCSR_DEFAULT;
+#endif
 }
 EXPORT_SYMBOL_GPL(fpstate_init);
 
@@ -308,6 +317,19 @@ void fpu__prepare_write(struct fpu *fpu)
 	/* Invalidate any cached state: */
 	__fpu_invalidate_fpregs_state(fpu);
 }
+
+/*
+#ifdef CONFIG_MK1OM
+/* KNC: reload the current task's vector mask registers (k0-k7) from its fpstate. */
+void restore_mask_regs(void)
+{
+	struct fpu *fpu = &current->thread.fpu;
+
+	if (unlikely(mic_restore_mask_regs(fpu)))
+		force_sig(SIGSEGV);
+}
+EXPORT_SYMBOL_GPL(restore_mask_regs);
+#endif
 
 /*
  * Drops current FPU state: deactivates the fpregs and

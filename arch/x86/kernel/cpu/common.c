@@ -681,6 +681,13 @@ void detect_num_cpu_cores(struct cpuinfo_x86 *c)
 	c->x86_max_cores = 1;
 	if (!IS_ENABLED(CONFIG_SMP) || c->cpuid_level < 4)
 		return;
+#if defined(CONFIG_ML1OM)
+	c->x86_max_cores = 32;
+	return;
+#elif defined(CONFIG_MK1OM)
+	c->x86_max_cores = 62;
+	return;
+#endif
 
 	cpuid_count(4, 0, &eax, &ebx, &ecx, &edx);
 	if (eax & 0x1f)

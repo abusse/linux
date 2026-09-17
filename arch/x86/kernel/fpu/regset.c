@@ -77,8 +77,10 @@ int xstateregs_get(struct task_struct *target, const struct user_regset *regset,
 	struct fpu *fpu = &target->thread.fpu;
 	struct xregs_state *xsave;
 
+#ifndef CONFIG_X86_EARLYMIC
 	if (!boot_cpu_has(X86_FEATURE_XSAVE))
 		return -ENODEV;
+#endif
 
 	xsave = &fpu->state.xsave;
 
@@ -111,8 +113,10 @@ int xstateregs_set(struct task_struct *target, const struct user_regset *regset,
 	struct xregs_state *xsave;
 	int ret;
 
+#ifndef CONFIG_X86_EARLYMIC
 	if (!boot_cpu_has(X86_FEATURE_XSAVE))
 		return -ENODEV;
+#endif
 
 	/*
 	 * A whole standard-format XSAVE buffer is needed:

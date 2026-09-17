@@ -798,6 +798,12 @@ void __init setup_nr_cpu_ids(void)
 }
 
 /* Called by boot processor to activate the rest. */
+#ifdef CONFIG_PARALLEL_AP_BOOT
+extern int do_check_cpu(int cpu);
+extern int cpu_up_parallel(unsigned int cpu);
+extern void map_cpu_active(unsigned int cpu);
+#endif
+
 void __init smp_init(void)
 {
 	int num_nodes, num_cpus;
@@ -807,7 +813,35 @@ void __init smp_init(void)
 
 	pr_info("Bringing up secondary CPUs ...\n");
 
+#ifdef CONFIG_PARALLEL_AP_BOOT
+	{
+	unsigned int cpu, ncpu = 0;
+	/* Phase 1: kick every AP (INIT already broadcast); do not wait. */
+	for_each_present_cpu(cpu) {
+		if (ncpu >= setup_max_cpus)
+			break;
+		if (!cpu_online(cpu))
+			cpu_up_parallel(cpu);
+		ncpu++;
+	}
+	/* Phase 2: wait for each AP to check in, then activate it. */
+	ncpu = 0;
+	for_each_present_cpu(cpu) {
+		if (ncpu >= setup_max_cpus)
+			break;
+		if (cpu != 0) {
+			if (!do_check_cpu(cpu)) {
+				map_cpu_active(cpu);
+				ncpu++;
+			}
+		} else {
+			ncpu++;
+		}
+	}
+	}
+#else
 	bringup_nonboot_cpus(setup_max_cpus);
+#endif
 
 	num_nodes = num_online_nodes();
 	num_cpus  = num_online_cpus();

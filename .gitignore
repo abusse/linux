@@ -48,6 +48,8 @@
 Module.symvers
 modules.builtin
 modules.order
+*.c.[012]*.*
+vmlinux*
 
 #
 # Top-level generic files
@@ -64,6 +66,9 @@ modules.order
 /Module.markers
 /modules.builtin.modinfo
 /modules.nsdeps
+/Module.symvers
+scif
+tmp
 
 #
 # RPM spec file (make rpm-pkg)
