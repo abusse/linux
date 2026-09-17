@@ -165,10 +165,10 @@ void micpm_proc_init(int cc6, int pc3, int pc6, int cpufreq)
 	struct proc_dir_entry *pentry;
 
 	
-	if((micpm_proc = create_proc_entry("micpm", S_IFDIR | S_IRUGO, NULL)) != NULL) {
+	if((micpm_proc = proc_mkdir("micpm", NULL)) != NULL) {
 #ifdef CONFIG_MIC_CPUIDLE	
 		if(cc6 || pc3 || pc6){
-			if((micpm_cpuidle_proc = create_proc_entry("cpuidle", S_IFDIR | S_IRUGO,
+			if((micpm_cpuidle_proc = proc_mkdir("cpuidle",
 				micpm_proc))!= NULL) {
 				if(cc6) {
 					pentry = proc_create("corec6", 0644,micpm_cpuidle_proc,

@@ -422,8 +422,12 @@ void _mic_crash_shutdown(struct pt_regs *regs)
 	/*
 	 * Only alert host outside of MC handling context
 	 */
+#ifdef CONFIG_X86_MCE
 	if (! atomic_read(&mce_entry))
 		mic_shutdown(0xdead);
+#else
+	mic_shutdown(0xdead);
+#endif
 	/*
 	 * Halt since MIC does not want to load crash kernel itself because
 	 * host kernel will capture the kernel core dump.

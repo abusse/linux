@@ -1400,7 +1400,7 @@ static int mic_cpufreq_target(struct cpufreq_policy *policy,
 processthermal:
 
 	freqs.cpu = policy->cpu;
-	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
 
 	spin_lock_irqsave(&mic_cpufreq_lock, flags);
 	if (!asynchevent && !thermalevent && (freqs.new <= maxcorefreq)) {
@@ -1440,13 +1440,13 @@ processthermal:
 		freqs.new = freqs.old;
 		freqs.old = tmp;
 		freqs.cpu = policy->cpu;
-		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+		cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
+		cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 		dprintk("Rolling back freq change\n");
 		goto out;
 	}
 	freqs.cpu = policy->cpu;
-	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 
 	/* Check if we have had a asynch event meanwhile */
 	spin_lock_irqsave(&mic_cpufreq_lock, flags);
@@ -1555,6 +1555,7 @@ static int mic_cpufreq_blocking_notifier(struct notifier_block *nb, unsigned lon
 {
 	unsigned long flags;
 	struct cpufreq_freqs freqs;
+	struct cpufreq_policy *policy = cpufreq_cpu_get(POLICY_CPU);
 
 	dprintk("mic_cpufreq_blocking_notifier entered with event = %lu\n", event);
 
@@ -1571,8 +1572,10 @@ static int mic_cpufreq_blocking_notifier(struct notifier_block *nb, unsigned lon
 			freqs.old = lastfreq;
 			freqs.cpu = POLICY_CPU;	
 			spin_unlock_irqrestore(&mic_cpufreq_lock, flags);
-			cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-			cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+			if (policy) {
+				cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
+				cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+			}
 			break;	
 		}
 		spin_unlock_irqrestore(&mic_cpufreq_lock, flags);
@@ -1589,10 +1592,14 @@ static int mic_cpufreq_blocking_notifier(struct notifier_block *nb, unsigned lon
 		thermalevent = 0;
 		smp_wmb();
 		spin_unlock_irqrestore(&mic_cpufreq_lock, flags);
-		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+		if (policy) {
+			cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
+			cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+		}
 		break;
 	}
+	if (policy)
+		cpufreq_cpu_put(policy);
 	return NOTIFY_DONE;
 }
 
