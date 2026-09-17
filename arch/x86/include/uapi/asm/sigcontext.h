@@ -176,6 +176,13 @@ struct _header {
 	__u64				reserved2[5];
 };
 
+struct _vpustate {
+	__u32 vector_space[512];	/* Vector Registers (32x64 bytes) */
+	__u16 k[8];			/* Mask Registers */
+	__u32 vxcsr;
+	__u32 reserved2[27];
+};
+
 struct _ymmh_state {
 	/* 16x YMM registers, 16 bytes each: */
 	__u32				ymmh_space[64];
@@ -191,8 +198,12 @@ struct _ymmh_state {
 struct _xstate {
 	struct _fpstate			fpstate;
 	struct _header			xstate_hdr;
+#ifdef CONFIG_X86_EARLYMIC
+	struct _vpustate		vpustate;
+#else
 	struct _ymmh_state		ymmh;
 	/* New processor state extensions go here: */
+#endif
 };
 
 /*
