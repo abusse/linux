@@ -200,6 +200,13 @@ struct _xsave_hdr {
 	__u64 reserved2[5];
 };
 
+struct _vpustate {
+	__u32 vector_space[512];	/* Vector Registers (32x64 bytes) */
+	__u16 k[8];			/* Mask Registers */
+	__u32 vxcsr;
+	__u32 reserved2[27];
+};
+
 struct _ymmh_state {
 	/* 16 * 16 bytes for each YMMH-reg */
 	__u32 ymmh_space[64];
@@ -214,8 +221,12 @@ struct _ymmh_state {
 struct _xstate {
 	struct _fpstate fpstate;
 	struct _xsave_hdr xstate_hdr;
+#ifdef CONFIG_X86_EARLYMIC
+	struct _vpustate vpustate;
+#else
 	struct _ymmh_state ymmh;
 	/* new processor state extensions go here */
+#endif
 };
 
 #endif /* _UAPI_ASM_X86_SIGCONTEXT_H */
