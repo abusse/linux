@@ -158,7 +158,12 @@ extern int get_sbox_irq(int irq);
 extern const unsigned char pc6_exit_64[];
 extern const unsigned char pc6_trampoline_end[];
 extern const unsigned char pc6_trampoline_pgt[];
-extern const unsigned char trampoline_level4_pgt[];
+/* v3.10 removed the boot trampoline_level4_pgt (realmode-trampoline rework). The
+ * CC6/PC6 resume trampolines that consume it are C-step-only; on B1 mic_setup_pc6/c6
+ * are gated off (x86_mask!=KNC_C_STEP) and never run, so this page-sized placeholder
+ * only satisfies the linker. A real C-step CC6/PC6 revival must point it at a proper
+ * identity pgd. */
+static unsigned char trampoline_level4_pgt[PAGE_SIZE] __attribute__((aligned(4096)));
 extern const unsigned char cc6_trampoline_level4_pgt[];
 extern const unsigned char cc6_trampoline_data[];
 extern const unsigned char cc6_trampoline_end[];
