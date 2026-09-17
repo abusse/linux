@@ -114,6 +114,12 @@ static void update_avx_timestamp(struct fpu *fpu)
  */
 void save_fpregs_to_fpstate(struct fpu *fpu)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* KNC: fxsave the x87 state, then store the vector/mask/VXCSR block. */
+	copy_fxregs_to_kernel(fpu);
+	save_init_vpu(&fpu->state.xsave);
+	return 1;
+#endif
 	if (likely(use_xsave())) {
 		os_xsave(fpu->fpstate);
 		update_avx_timestamp(fpu);

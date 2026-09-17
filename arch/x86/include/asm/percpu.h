@@ -431,8 +431,10 @@ do {									\
 	old__.var;							\
 })
 
+#ifndef CONFIG_MK1OM	/* k1om lacks CMPXCHG16B */
 #define raw_cpu_cmpxchg128(pcp, oval, nval)		percpu_cmpxchg128_op(16,         , pcp, oval, nval)
 #define this_cpu_cmpxchg128(pcp, oval, nval)		percpu_cmpxchg128_op(16, volatile, pcp, oval, nval)
+#endif
 
 #define percpu_try_cmpxchg128_op(size, qual, _var, _ovalp, _nval)	\
 ({									\
@@ -464,8 +466,10 @@ do {									\
 	likely(success);						\
 })
 
+#ifndef CONFIG_MK1OM	/* k1om lacks CMPXCHG16B */
 #define raw_cpu_try_cmpxchg128(pcp, ovalp, nval)	percpu_try_cmpxchg128_op(16,         , pcp, ovalp, nval)
 #define this_cpu_try_cmpxchg128(pcp, ovalp, nval)	percpu_try_cmpxchg128_op(16, volatile, pcp, ovalp, nval)
+#endif
 
 #endif /* CONFIG_X86_64 */
 

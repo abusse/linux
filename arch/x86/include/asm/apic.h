@@ -555,4 +555,8 @@ extern void __irq_msi_compose_msg(struct irq_cfg *cfg, struct msi_msg *msg,
 
 extern void ioapic_zap_locks(void);
 
+
+#if defined(CONFIG_X86_EARLYMIC) && defined(CONFIG_MK1OM)
+void recalibrate_lapic(u_int div, u_int mult);
+#endif
 #endif /* _ASM_X86_APIC_H */

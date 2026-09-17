@@ -44,6 +44,8 @@
 #define EM_NDS32	167	/* Andes Technology compact code size
 				   embedded RISC processor family */
 #define EM_AARCH64	183	/* ARM 64 bit */
+#define EM_L1OM		180	/* Intel L1OM */
+#define EM_K1OM		181	/* Intel K1OM */
 #define EM_TILEPRO	188	/* Tilera TILEPro */
 #define EM_MICROBLAZE	189	/* Xilinx MicroBlaze */
 #define EM_TILEGX	191	/* Tilera TILE-Gx */

@@ -1,4 +1,28 @@
 // SPDX-License-Identifier: GPL-2.0
+/* * Copyright (c) Intel Corporation (2011).
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
+
 /*
  *	Intel IO-APIC support for multi-Pentium hosts.
  *
@@ -67,6 +91,9 @@
 #include <asm/apic.h>
 #include <asm/pgtable.h>
 #include <asm/x86_init.h>
+#ifdef CONFIG_X86_EARLYMIC
+#include <asm/mic_def.h>
+#endif
 
 #define	for_each_ioapic(idx)		\
 	for ((idx) = 0; (idx) < nr_ioapics; (idx)++)
@@ -125,7 +152,7 @@ int mpc_ioapic_id(int ioapic_idx)
 	return ioapics[ioapic_idx].mp_config.apicid;
 }
 
-unsigned int mpc_ioapic_addr(int ioapic_idx)
+unsigned long mpc_ioapic_addr(int ioapic_idx)
 {
 	return ioapics[ioapic_idx].mp_config.apicaddr;
 }
@@ -270,19 +297,29 @@ static inline void io_apic_eoi(unsigned int apic, unsigned int vector)
 
 unsigned int native_io_apic_read(unsigned int apic, unsigned int reg)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	volatile u32 *io_apic = (volatile u32 *) io_apic_base(apic);
+	return readl((void __iomem *)(io_apic + reg));
+#else
 	struct io_apic __iomem *io_apic = io_apic_base(apic);
 
 	writel(reg, &io_apic->index);
 	return readl(&io_apic->data);
+#endif
 }
 
 static void io_apic_write(unsigned int apic, unsigned int reg,
 			  unsigned int value)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	volatile u32 *io_apic = (volatile u32 *) io_apic_base(apic);
+	writel(value, (void __iomem *)(io_apic + reg));
+#else
 	struct io_apic __iomem *io_apic = io_apic_base(apic);
 
 	writel(reg, &io_apic->index);
 	writel(value, &io_apic->data);
+#endif
 }
 
 static struct IO_APIC_route_entry __ioapic_read_entry(int apic, int pin)
@@ -1879,6 +1916,69 @@ static struct irq_chip ioapic_ir_chip __read_mostly = {
 				  IRQCHIP_AFFINITY_PRE_STARTUP,
 };
 
+#ifdef CONFIG_X86_EARLYMIC
+/*
+ * SBOX APIC ICR interrupt support (MIC host<->card doorbell IRQs): plain
+ * vector-domain IRQs whose vector is programmed into an SBOX ICR register.
+ */
+static void mask_sbox_irq(struct irq_data *data)
+{
+#ifdef CONFIG_MK1OM
+	void __iomem *icraddr = data->handler_data;
+	u32 value = readl(icraddr);
+	value |= 1 << 16;
+	writel(value, icraddr);
+#endif
+}
+
+static void unmask_sbox_irq(struct irq_data *data)
+{
+#ifdef CONFIG_MK1OM
+	void __iomem *icraddr = data->handler_data;
+	u32 value = readl(icraddr);
+	value &= ~(1 << 16);
+	writel(value, icraddr);
+#endif
+}
+
+static struct irq_chip sbox_chip = {
+	.name		= "SBOX-ICR",
+	.irq_unmask	= unmask_sbox_irq,
+	.irq_mask	= mask_sbox_irq,
+	.irq_ack	= apic_ack_edge,
+	.irq_retrigger	= apic_retrigger_irq,
+};
+
+static void setup_sbox_irq(int irq, int i)
+{
+	struct irq_cfg *cfg = irqd_cfg(irq_get_irq_data(irq));
+	void __iomem *icraddr = mic_sbox_mmio_va + SBOX_APICICR0 + (i * 8);
+	int vector = cfg->vector;
+
+	irq_set_chip_and_handler_name(irq, &sbox_chip, handle_edge_irq, "edge");
+	irq_set_handler_data(irq, icraddr);
+	/* Write the vector number and destination apicid into the SBOX ICR */
+	writel(vector, icraddr);
+	writel(boot_cpu_physical_apicid, icraddr + 4);
+	printk("irq %d for SBOX, vector=%d, icr=%u\n", irq, vector, readl(icraddr));
+}
+
+void arch_setup_sbox_irqs(unsigned int *irqs, int n)
+{
+	struct irq_alloc_info info;
+	int node = cpu_to_node(boot_cpu_physical_apicid);
+	int irq, i;
+
+	init_irq_alloc_info(&info, NULL);
+	irq = irq_domain_alloc_irqs(x86_vector_domain, n, node, &info);
+	BUG_ON(irq <= 0);
+	for (i = 0; i < n; i++) {
+		setup_sbox_irq(irq + i, i);
+		irqs[i] = irq + i;
+	}
+}
+#endif /* CONFIG_X86_EARLYMIC */
+
 static inline void init_IO_APIC_traps(void)
 {
 	struct irq_cfg *cfg;
@@ -2643,7 +2743,7 @@ static int bad_ioapic_register(int idx)
 	reg_02.raw = io_apic_read(idx, 2);
 
 	if (reg_00.raw == -1 && reg_01.raw == -1 && reg_02.raw == -1) {
-		pr_warn("I/O APIC 0x%x registers return all ones, skipping!\n",
+		pr_warn("I/O APIC 0x%lx registers return all ones, skipping!\n",
 			mpc_ioapic_addr(idx));
 		return 1;
 	}
@@ -2744,15 +2844,19 @@ int mp_register_ioapic(int id, u32 address, u32 gsi_base, struct ioapic_domain_c
 		alloc_ioapic_saved_registers(idx);
 	}
 
+#ifdef CONFIG_X86_EARLYMIC
+	gsi_top = 0;
+#else
 	if (gsi_cfg->gsi_end >= gsi_top)
 		gsi_top = gsi_cfg->gsi_end + 1;
+#endif
 	if (nr_ioapics <= idx)
 		nr_ioapics = idx + 1;
 
 	/* Set nr_registers to mark entry present */
 	ioapics[idx].nr_registers = entries;
 
-	pr_info("IOAPIC[%d]: apic_id %d, version %d, address 0x%x, GSI %d-%d\n",
+	pr_info("IOAPIC[%d]: apic_id %d, version %d, address 0x%lx, GSI %d-%d\n",
 		idx, mpc_ioapic_id(idx), mpc_ioapic_ver(idx), mpc_ioapic_addr(idx),
 		gsi_cfg->gsi_base, gsi_cfg->gsi_end);
 

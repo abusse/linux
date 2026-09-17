@@ -54,6 +54,8 @@
 Module.symvers
 dtbs-list
 modules.order
+*.c.[012]*.*
+vmlinux*
 
 #
 # Top-level generic files
@@ -72,6 +74,9 @@ modules.order
 /modules.builtin.modinfo
 /modules.builtin.ranges
 /modules.nsdeps
+/Module.symvers
+scif
+tmp
 
 #
 # RPM spec file (make rpm-pkg)

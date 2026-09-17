@@ -10,7 +10,12 @@
 /* REP NOP (PAUSE) is a good thing to insert into busy-wait loops. */
 static __always_inline void rep_nop(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* no pause; approximate with delay */
+	asm volatile("delay %0" :: "r" (1000) : "memory");
+#else
 	asm volatile("rep; nop" ::: "memory");
+#endif
 }
 
 static __always_inline void cpu_relax(void)

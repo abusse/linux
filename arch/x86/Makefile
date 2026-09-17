@@ -62,6 +62,24 @@ REALMODE_CFLAGS += -Wno-gnu
 endif
 export REALMODE_CFLAGS
 
+ifeq ($(ARCH),l1om)
+tool-archpref = x86_64-l1om
+else ifeq ($(ARCH),k1om)
+tool-archpref = x86_64-k1om
+endif
+
+# override top level makefile
+ifneq ($(SUBARCH),$(ARCH))
+        ifeq ($(CROSS_COMPILE),)
+                ifneq ($(tool-archpref),)
+                        CROSS_COMPILE := $(call cc-cross-prefix, \
+                                $(tool-archpref)-linux-gnu- \
+                                $(tool-archpref)-linux- \
+                                $(tool-archpref)-unknown-linux-gnu-)
+                endif
+        endif
+endif
+
 # BITS is used as extension for files which are available in a 32 bit
 # and a 64 bit version to simplify shared Makefiles.
 # e.g.: obj-y += foo_$(BITS).o
@@ -150,8 +168,8 @@ ifeq ($(CONFIG_X86_32),y)
     endif
 else
         BITS := 64
-        UTS_MACHINE := x86_64
-        CHECKFLAGS += -D__x86_64__
+        UTS_MACHINE := $(ARCH)
+        CHECKFLAGS += -D__x86_64__ -m64
 
         KBUILD_AFLAGS += -m64
         KBUILD_CFLAGS += -m64
@@ -249,7 +267,7 @@ KBUILD_RUSTFLAGS += $(PADDING_RUSTFLAGS)
 export PADDING_RUSTFLAGS
 endif
 
-KBUILD_LDFLAGS += -m elf_$(UTS_MACHINE)
+KBUILD_LDFLAGS += -m elf_$(UTS_MACHINE) --defsym=MIC_KERNEL_VERSION_20626=0
 
 ifdef CONFIG_X86_NEED_RELOCS
 LDFLAGS_vmlinux := --emit-relocs --discard-none
@@ -289,6 +307,9 @@ drivers-$(CONFIG_PCI)            += arch/x86/pci/
 drivers-$(CONFIG_PM) += arch/x86/power/
 
 drivers-$(CONFIG_VIDEO) += arch/x86/video/
+
+# KDB support
+drivers-$(CONFIG_KDB) += arch/x86/kdb/
 
 ####
 # boot loader support. Several targets are kept for legacy purposes

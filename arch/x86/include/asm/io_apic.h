@@ -67,9 +67,16 @@ struct IO_APIC_route_entry {
 				is_level		:  1,
 				masked			:  1,
 				reserved_0		: 15,
+#ifdef CONFIG_X86_EARLYMIC
+				/* KNC SBOX IOAPIC: destination id in bits 32-39 */
+				destid_0_7		:  8,
+				virt_destid_8_14	:  7,
+				reserved_1		: 17;
+#else
 				reserved_1		: 17,
 				virt_destid_8_14	:  7,
 				destid_0_7		:  8;
+#endif
 		};
 		struct {
 			u64	ir_shared_0		:  8,
@@ -101,7 +108,7 @@ struct ioapic_domain_cfg;
 extern int nr_ioapics;
 
 extern int mpc_ioapic_id(int ioapic);
-extern unsigned int mpc_ioapic_addr(int ioapic);
+extern unsigned long mpc_ioapic_addr(int ioapic);
 
 /* # of MP IRQ source entries */
 extern int mp_irq_entries;

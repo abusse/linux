@@ -168,6 +168,19 @@ static inline void smpboot_restore_warm_reset_vector(void)
 
 }
 
+#ifdef CONFIG_X86_EARLYMIC
+extern void disable_icache_snoop(void);
+extern void mic_construct_default_ioirq_mptable(int mpc_default_type) __init;
+extern void mic_smpt_init(void) __init;
+#endif
+#ifdef CONFIG_PARALLEL_AP_BOOT
+extern unsigned long smp_stack_pointer_map[];
+extern unsigned long smp_gs_map[];
+extern unsigned long ap_code;
+extern unsigned long apic_base_addr;
+static DEFINE_RAW_SPINLOCK(cpu_data_lock);
+#endif
+
 /* Run the next set of setup steps for the upcoming CPU */
 static void ap_starting(void)
 {
@@ -278,11 +291,16 @@ static void notrace start_secondary(void *unused)
 	fpu__init_cpu();
 	rcutree_report_cpu_starting(raw_smp_processor_id());
 	x86_cpuinit.early_percpu_clock_init();
+#ifdef CONFIG_X86_EARLYMIC
+	disable_icache_snoop();		/* we are an AP */
+#endif
 
 	ap_starting();
 
 	/* Check TSC synchronization with the control CPU. */
+#ifndef CONFIG_PARALLEL_AP_BOOT
 	check_tsc_sync_target();
+#endif
 
 	/*
 	 * Calibrate the delay loop after the TSC synchronization check.
@@ -1042,6 +1060,11 @@ void __init smp_prepare_cpus_common(void)
 			per_cpu(cpu_info.cpu_index, cpu) = nr_cpu_ids;
 	}
 
+#ifdef CONFIG_X86_EARLYMIC
+	disable_icache_snoop();		/* we are the BSP */
+	mic_construct_default_ioirq_mptable(0);	/* populate mp_irqs for the MIC IOAPIC pins */
+	mic_smpt_init();		/* MIC system memory page tables (host access) */
+#endif
 	for_each_possible_cpu(cpu) {
 		node = cpu_to_node(cpu);
 
@@ -1112,6 +1135,14 @@ void __init native_smp_prepare_cpus(unsigned int max_cpus)
 	speculative_store_bypass_ht_init();
 
 	snp_set_wakeup_secondary_cpu();
+#ifdef CONFIG_PARALLEL_AP_BOOT
+	if (do_pre_wakeup_aps())
+		printk("failed to broadcast INIT to APs\n");
+	/* BSP is up; bring secondary CPUs up in parallel. */
+	ap_code = 1;
+	apic_base_addr = APIC_BASE;
+	smp_ops.cpu_up = native_cpu_up_parallel;
+#endif
 }
 
 void arch_thaw_secondary_cpus_begin(void)
