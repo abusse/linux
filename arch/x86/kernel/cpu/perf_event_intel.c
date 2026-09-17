@@ -2309,6 +2309,11 @@ __init int intel_pmu_init(void)
 	struct extra_reg *er;
 	int version, i;
 
+#ifdef CONFIG_MK1OM
+	extern int knc_pmu_init(void);
+	if (boot_cpu_data.x86 == 0x0b)		/* Knights Corner */
+		return knc_pmu_init();
+#endif
 	if (!cpu_has(&boot_cpu_data, X86_FEATURE_ARCH_PERFMON)) {
 		switch (boot_cpu_data.x86) {
 		case 0x6:

@@ -25,6 +25,9 @@
 #define _PAGE_BIT_SPLITTING	_PAGE_BIT_SOFTW2 /* only valid on a PSE pmd */
 #define _PAGE_BIT_HIDDEN	_PAGE_BIT_SOFTW3 /* hidden by kmemcheck */
 #define _PAGE_BIT_SOFT_DIRTY	_PAGE_BIT_SOFTW3 /* software dirty tracking */
+#ifdef CONFIG_X86_EARLYMIC
+#define _PAGE_BIT_64K		51	/* KNC 64K page PTE bit */
+#endif
 #define _PAGE_BIT_NX           63       /* No execute: only valid after cpuid check */
 
 /*
@@ -112,6 +115,10 @@
 #define _PAGE_NX	(_AT(pteval_t, 1) << _PAGE_BIT_NX)
 #else
 #define _PAGE_NX	(_AT(pteval_t, 0))
+#endif
+
+#ifdef CONFIG_X86_EARLYMIC
+#define _PAGE_SIZE_64K	(_AT(pteval_t, 1) << _PAGE_BIT_64K)
 #endif
 
 #define _PAGE_FILE	(_AT(pteval_t, 1) << _PAGE_BIT_FILE)

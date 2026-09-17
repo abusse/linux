@@ -1,19 +1,51 @@
+/* * Copyright (c) Intel Corporation (2011).
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
+
 #ifndef __ASM_X86_XSAVE_H
 #define __ASM_X86_XSAVE_H
 
 #include <linux/types.h>
 #include <asm/processor.h>
+#include <asm/i387.h>  //MICBUGBUG: include file loop!
+#ifdef CONFIG_X86_EARLYMIC
+#include <asm/mic_ni.h>
+#endif
 
 #define XSTATE_CPUID		0x0000000d
 
 #define XSTATE_FP		0x1
 #define XSTATE_SSE		0x2
 #define XSTATE_YMM		0x4
+#ifdef CONFIG_X86_EARLYMIC
+#define XSTATE_ZMM		0x8
+#else
 #define XSTATE_BNDREGS		0x8
 #define XSTATE_BNDCSR		0x10
 #define XSTATE_OPMASK		0x20
 #define XSTATE_ZMM_Hi256	0x40
 #define XSTATE_Hi16_ZMM		0x80
+#endif
 
 #define XSTATE_FPSSE	(XSTATE_FP | XSTATE_SSE)
 /* Bit 63 of XCR0 is reserved for future expansion */
@@ -27,6 +59,10 @@
 #define XSAVE_YMM_SIZE	    256
 #define XSAVE_YMM_OFFSET    (XSAVE_HDR_SIZE + XSAVE_HDR_OFFSET)
 
+#ifdef CONFIG_X86_EARLYMIC
+/* KNC: no MPX/BND; the 0x8 xstate slot is ZMM (high vector) state */
+#define XCNTXT_MASK	(XSTATE_FP | XSTATE_SSE | XSTATE_YMM | XSTATE_ZMM)
+#else
 /* Supported features which support lazy state saving */
 #define XSTATE_LAZY	(XSTATE_FP | XSTATE_SSE | XSTATE_YMM		      \
 			| XSTATE_OPMASK | XSTATE_ZMM_Hi256 | XSTATE_Hi16_ZMM)
@@ -36,6 +72,7 @@
 
 /* All currently supported features */
 #define XCNTXT_MASK	(XSTATE_LAZY | XSTATE_EAGER)
+#endif
 
 #ifdef CONFIG_X86_64
 #define REX_PREFIX	"0x48, "
@@ -52,174 +89,51 @@ extern void xsave_init(void);
 extern void update_regset_xstate_info(unsigned int size, u64 xstate_mask);
 extern int init_fpu(struct task_struct *child);
 
-/* These macros all use (%edi)/(%rdi) as the single memory argument. */
-#define XSAVE		".byte " REX_PREFIX "0x0f,0xae,0x27"
-#define XSAVEOPT	".byte " REX_PREFIX "0x0f,0xae,0x37"
-#define XSAVES		".byte " REX_PREFIX "0x0f,0xc7,0x2f"
-#define XRSTOR		".byte " REX_PREFIX "0x0f,0xae,0x2f"
-#define XRSTORS		".byte " REX_PREFIX "0x0f,0xc7,0x1f"
+//MICBUGBUG: workaround include file loop
+static inline int fxrstor_checking(struct i387_fxsave_struct *fx);
+static inline int fxsave_user(struct i387_fxsave_struct __user *fx);
 
-#define xstate_fault	".section .fixup,\"ax\"\n"	\
-			"3:  movl $-1,%[err]\n"		\
-			"    jmp  2b\n"			\
-			".previous\n"			\
-			_ASM_EXTABLE(1b, 3b)		\
-			: [err] "=r" (err)
-
-/*
- * This function is called only during boot time when x86 caps are not set
- * up and alternative can not be used yet.
- */
-static inline int xsave_state_booting(struct xsave_struct *fx, u64 mask)
+#ifdef CONFIG_MK1OM
+static inline int _mic_restore_mask_regs(struct xsave_struct *fx)
 {
-	u32 lmask = mask;
-	u32 hmask = mask >> 32;
-	int err = 0;
-
-	WARN_ON(system_state != SYSTEM_BOOTING);
-
-	if (boot_cpu_has(X86_FEATURE_XSAVES))
-		asm volatile("1:"XSAVES"\n\t"
-			"2:\n\t"
-			: : "D" (fx), "m" (*fx), "a" (lmask), "d" (hmask)
-			:   "memory");
-	else
-		asm volatile("1:"XSAVE"\n\t"
-			"2:\n\t"
-			: : "D" (fx), "m" (*fx), "a" (lmask), "d" (hmask)
-			:   "memory");
-
-	asm volatile(xstate_fault
-		     : "0" (0)
-		     : "memory");
-
-	return err;
+       return __mic_restore_mask_regs(&fx->vpu);
 }
+#endif
 
-/*
- * This function is called only during boot time when x86 caps are not set
- * up and alternative can not be used yet.
- */
-static inline int xrstor_state_booting(struct xsave_struct *fx, u64 mask)
-{
-	u32 lmask = mask;
-	u32 hmask = mask >> 32;
-	int err = 0;
-
-	WARN_ON(system_state != SYSTEM_BOOTING);
-
-	if (boot_cpu_has(X86_FEATURE_XSAVES))
-		asm volatile("1:"XRSTORS"\n\t"
-			"2:\n\t"
-			: : "D" (fx), "m" (*fx), "a" (lmask), "d" (hmask)
-			:   "memory");
-	else
-		asm volatile("1:"XRSTOR"\n\t"
-			"2:\n\t"
-			: : "D" (fx), "m" (*fx), "a" (lmask), "d" (hmask)
-			:   "memory");
-
-	asm volatile(xstate_fault
-		     : "0" (0)
-		     : "memory");
-
-	return err;
-}
-
-/*
- * Save processor xstate to xsave area.
- */
-static inline int xsave_state(struct xsave_struct *fx, u64 mask)
-{
-	u32 lmask = mask;
-	u32 hmask = mask >> 32;
-	int err = 0;
-
-	/*
-	 * If xsaves is enabled, xsaves replaces xsaveopt because
-	 * it supports compact format and supervisor states in addition to
-	 * modified optimization in xsaveopt.
-	 *
-	 * Otherwise, if xsaveopt is enabled, xsaveopt replaces xsave
-	 * because xsaveopt supports modified optimization which is not
-	 * supported by xsave.
-	 *
-	 * If none of xsaves and xsaveopt is enabled, use xsave.
-	 */
-	alternative_input_2(
-		"1:"XSAVE,
-		"1:"XSAVEOPT,
-		X86_FEATURE_XSAVEOPT,
-		"1:"XSAVES,
-		X86_FEATURE_XSAVES,
-		[fx] "D" (fx), "a" (lmask), "d" (hmask) :
-		"memory");
-	asm volatile("2:\n\t"
-		     xstate_fault
-		     : "0" (0)
-		     : "memory");
-
-	return err;
-}
-
-/*
- * Restore processor xstate from xsave area.
- */
-static inline int xrstor_state(struct xsave_struct *fx, u64 mask)
-{
-	int err = 0;
-	u32 lmask = mask;
-	u32 hmask = mask >> 32;
-
-	/*
-	 * Use xrstors to restore context if it is enabled. xrstors supports
-	 * compacted format of xsave area which is not supported by xrstor.
-	 */
-	alternative_input(
-		"1: " XRSTOR,
-		"1: " XRSTORS,
-		X86_FEATURE_XSAVES,
-		"D" (fx), "m" (*fx), "a" (lmask), "d" (hmask)
-		: "memory");
-
-	asm volatile("2:\n"
-		     xstate_fault
-		     : "0" (0)
-		     : "memory");
-
-	return err;
-}
-
-/*
- * Save xstate context for old process during context switch.
- */
-static inline void fpu_xsave(struct fpu *fpu)
-{
-	xsave_state(&fpu->state->xsave, -1);
-}
-
-/*
- * Restore xstate context for new process during context switch.
- */
 static inline int fpu_xrstor_checking(struct xsave_struct *fx)
 {
-	return xrstor_state(fx, -1);
+	int err;
+#ifdef CONFIG_X86_EARLYMIC
+	err = fxrstor_checking(&fx->i387);
+#ifdef CONFIG_ML1OM
+	if (!err)
+		err = restore_vpu_checking(&fx->vpu);
+#else
+	if (!err)
+		err = restore_vpu_checking_nomask(&fx->vpu);
+#endif
+#else
+	asm volatile("1: .byte " REX_PREFIX "0x0f,0xae,0x2f\n\t"
+		     "2:\n"
+		     ".section .fixup,\"ax\"\n"
+		     "3:  movl $-1,%[err]\n"
+		     "    jmp  2b\n"
+		     ".previous\n"
+		     _ASM_EXTABLE(1b, 3b)
+		     : [err] "=r" (err)
+		     : "D" (fx), "m" (*fx), "a" (-1), "d" (-1), "0" (0)
+		     : "memory");
+#endif
+
+	return err;
 }
 
-/*
- * Save xstate to user space xsave area.
- *
- * We don't use modified optimization because xrstor/xrstors might track
- * a different application.
- *
- * We don't use compacted format xsave area for
- * backward compatibility for old applications which don't understand
- * compacted format of xsave area.
- */
 static inline int xsave_user(struct xsave_struct __user *buf)
 {
 	int err;
-
+#ifdef CONFIG_X86_EARLYMIC
+	struct xsave_struct *xstate = ((__force struct xsave_struct *)buf);
+#endif
 	/*
 	 * Clear the xsave header first, so that reserved fields are
 	 * initialized to zero.
@@ -227,36 +141,90 @@ static inline int xsave_user(struct xsave_struct __user *buf)
 	err = __clear_user(&buf->xsave_hdr, sizeof(buf->xsave_hdr));
 	if (unlikely(err))
 		return -EFAULT;
-
+#ifdef CONFIG_X86_EARLYMIC
+	err = fxsave_user(&xstate->i387);
+	if (!err)
+		err = save_vpu_checking(&xstate->vpu);
+#else
 	__asm__ __volatile__(ASM_STAC "\n"
-			     "1:"XSAVE"\n"
+			     "1: .byte " REX_PREFIX "0x0f,0xae,0x27\n"
 			     "2: " ASM_CLAC "\n"
-			     xstate_fault
+			     ".section .fixup,\"ax\"\n"
+			     "3:  movl $-1,%[err]\n"
+			     "    jmp  2b\n"
+			     ".previous\n"
+			     _ASM_EXTABLE(1b,3b)
+			     : [err] "=r" (err)
 			     : "D" (buf), "a" (-1), "d" (-1), "0" (0)
 			     : "memory");
+#endif
 	return err;
 }
 
-/*
- * Restore xstate from user space xsave area.
- */
 static inline int xrestore_user(struct xsave_struct __user *buf, u64 mask)
 {
-	int err = 0;
+	int err;
 	struct xsave_struct *xstate = ((__force struct xsave_struct *)buf);
+
+#ifdef CONFIG_X86_EARLYMIC
+	err = fxrstor_checking(&xstate->i387);
+	if (!err)
+		err = restore_vpu_checking(&xstate->vpu);
+#else
 	u32 lmask = mask;
 	u32 hmask = mask >> 32;
 
 	__asm__ __volatile__(ASM_STAC "\n"
-			     "1:"XRSTOR"\n"
+			     "1: .byte " REX_PREFIX "0x0f,0xae,0x2f\n"
 			     "2: " ASM_CLAC "\n"
-			     xstate_fault
+			     ".section .fixup,\"ax\"\n"
+			     "3:  movl $-1,%[err]\n"
+			     "    jmp  2b\n"
+			     ".previous\n"
+			     _ASM_EXTABLE(1b,3b)
+			     : [err] "=r" (err)
 			     : "D" (xstate), "a" (lmask), "d" (hmask), "0" (0)
 			     : "memory");	/* memory required? */
+#endif
 	return err;
 }
 
-void *get_xsave_addr(struct xsave_struct *xsave, int xstate);
-void setup_xstate_comp(void);
+static inline void xrstor_state(struct xsave_struct *fx, u64 mask)
+{
+#ifndef CONFIG_X86_EARLYMIC
+	u32 lmask = mask;
+	u32 hmask = mask >> 32;
 
+	asm volatile(".byte " REX_PREFIX "0x0f,0xae,0x2f\n\t"
+		     : : "D" (fx), "m" (*fx), "a" (lmask), "d" (hmask)
+		     :   "memory");
+#endif
+}
+
+static inline void xsave_state(struct xsave_struct *fx, u64 mask)
+{
+//#ifdef CONFIG_X86_EARLYMIC
+//	fpu_fxsave(fx->fpu);
+//	save_init_vpu(fx);
+//#else
+	u32 lmask = mask;
+	u32 hmask = mask >> 32;
+
+	asm volatile(".byte " REX_PREFIX "0x0f,0xae,0x27\n\t"
+		     : : "D" (fx), "m" (*fx), "a" (lmask), "d" (hmask)
+		     :   "memory");
+//#endif
+}
+
+static inline void fpu_xsave(struct fpu *fpu)
+{
+	/* This, however, we can work around by forcing the compiler to select
+	   an addressing mode that doesn't require extended registers. */
+	alternative_input(
+		".byte " REX_PREFIX "0x0f,0xae,0x27",
+		".byte " REX_PREFIX "0x0f,0xae,0x37",
+		X86_FEATURE_XSAVEOPT,
+		[fx] "D" (&fpu->state->xsave), "a" (-1), "d" (-1) :
+		"memory");
+}
 #endif
