@@ -111,6 +111,42 @@ EXPORT_SYMBOL_GPL(mca_exc_exit);
 EXPORT_SYMBOL_GPL(mca_print);
 int mce_disabled __read_mostly;		/* mirrors mca_cfg.disabled for micras */
 EXPORT_SYMBOL_GPL(mce_disabled);
+
+static u64 mce_rdmsrl(u32 msr);
+#define __do_mca_callout(which, ...)	do { if (which) which(__VA_ARGS__); } while (0)
+#define do_mca_exc_entry(...) __do_mca_callout(mca_exc_entry, __VA_ARGS__)
+#define do_mca_exc_panic(...) __do_mca_callout(mca_exc_panic, __VA_ARGS__)
+#define do_mca_exc_exit(...)  __do_mca_callout(mca_exc_exit,  __VA_ARGS__)
+#define do_mca_print(...)     __do_mca_callout(mca_print,     __VA_ARGS__)
+static inline void do_mca_exc_flt(struct mce *mce, int fake)
+{
+	u64 ctl;
+	if (mca_exc_flt) {
+		ctl = mce_rdmsrl(MSR_IA32_MCx_CTL(mce->bank));
+		if (mce->status & MCI_STATUS_MISCV)
+			mce->misc = mce_rdmsrl(MSR_IA32_MCx_MISC(mce->bank));
+		if (mce->status & MCI_STATUS_ADDRV)
+			mce->addr = mce_rdmsrl(MSR_IA32_MCx_ADDR(mce->bank));
+		mca_exc_flt(mce, ctl, fake);
+	}
+}
+static inline void do_mca_poll(struct mce *mce, int fake)
+{
+	u64 ctl;
+	if (mca_poll) {
+		ctl = mce_rdmsrl(MSR_IA32_MCx_CTL(mce->bank));
+		mca_poll(mce, ctl, fake);
+	}
+}
+static inline void do_mca_exc_log(struct mce *mce, int fake, int nwo,
+				  char *msg, int bad, int worst)
+{
+	u64 ctl;
+	if (mca_exc_log) {
+		ctl = mce_rdmsrl(MSR_IA32_MCx_CTL(mce->bank));
+		mca_exc_log(mce, ctl, fake, nwo, msg, bad, worst);
+	}
+}
 #endif
 
 struct mca_config mca_cfg __read_mostly = {
@@ -328,6 +364,9 @@ static void mce_panic(const char *msg, struct mce *final, char *exp)
 	int apei_err = 0;
 	struct llist_node *pending;
 	struct mce_evt_llist *l;
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_panic(final, msg, exp, fake_panic);
+#endif
 
 	if (!fake_panic) {
 		/*
@@ -848,6 +887,9 @@ log_it:
 		mce_log(&m);
 
 clear_it:
+#ifdef CONFIG_X86_EARLYMIC
+		do_mca_poll(&m, __this_cpu_read(injectm.finished));
+#endif
 		/*
 		 * Clear state for this bank.
 		 */
@@ -1225,8 +1267,12 @@ static void __mc_scan_banks(struct mce *m, struct pt_regs *regs, struct mce *fin
 		 * machine_check_poll(). Leave them alone, unless this panics.
 		 */
 		if (!(m->status & (cfg->ser ? MCI_STATUS_S : MCI_STATUS_UC)) &&
-			!no_way_out)
+			!no_way_out) {
+#ifdef CONFIG_X86_EARLYMIC
+			do_mca_exc_flt(m, __this_cpu_read(injectm.finished));
+#endif
 			continue;
+		}
 
 		/* Set taint even when machine check was not enabled. */
 		add_taint(TAINT_MACHINE_CHECK, LOCKDEP_NOW_UNRELIABLE);
@@ -1359,6 +1405,14 @@ noinstr void do_machine_check(struct pt_regs *regs)
 	 * on Intel.
 	 */
 	int lmce = 1;
+#ifdef CONFIG_X86_EARLYMIC
+	int entry = 0, fake = 0;
+#endif
+
+#ifdef CONFIG_X86_EARLYMIC
+	entry = atomic_inc_return(&mce_entry);
+	fake = __this_cpu_read(injectm.finished);
+#endif
 
 	this_cpu_inc(mce_exception_count);
 
@@ -1402,8 +1456,14 @@ noinstr void do_machine_check(struct pt_regs *regs)
 	} else {
 		order = mce_start(&no_way_out);
 	}
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_entry(&m, fake, no_way_out, entry, msg);
+#endif
 
 	__mc_scan_banks(&m, regs, final, toclear, valid_banks, no_way_out, &worst);
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_log(&m, fake, no_way_out, msg, worst, worst);
+#endif
 
 	if (!no_way_out)
 		mce_clear_state(toclear);
@@ -1431,6 +1491,9 @@ noinstr void do_machine_check(struct pt_regs *regs)
 			mce_panic("Local fatal machine check!", &m, msg);
 		}
 	}
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_exit(&m, no_way_out, worst, entry, order);
+#endif
 
 	/*
 	 * If tolerant is at an insane level we drop requests to kill
@@ -1473,6 +1536,9 @@ noinstr void do_machine_check(struct pt_regs *regs)
 			queue_task_work(&m, kill_it);
 	}
 out:
+#ifdef CONFIG_X86_EARLYMIC
+	atomic_dec(&mce_entry);
+#endif
 	mce_wrmsrl(MSR_IA32_MCG_STATUS, 0);
 }
 EXPORT_SYMBOL_GPL(do_machine_check);
