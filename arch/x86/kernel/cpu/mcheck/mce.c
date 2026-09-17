@@ -94,6 +94,42 @@ EXPORT_SYMBOL_GPL(mca_exc_exit);
 EXPORT_SYMBOL_GPL(mca_print);
 int mce_disabled __read_mostly;		/* mirrors mca_cfg.disabled for micras */
 EXPORT_SYMBOL_GPL(mce_disabled);
+
+static u64 mce_rdmsrl(u32 msr);
+#define __do_mca_callout(which, ...)	do { if (which) which(__VA_ARGS__); } while (0)
+#define do_mca_exc_entry(...) __do_mca_callout(mca_exc_entry, __VA_ARGS__)
+#define do_mca_exc_panic(...) __do_mca_callout(mca_exc_panic, __VA_ARGS__)
+#define do_mca_exc_exit(...)  __do_mca_callout(mca_exc_exit,  __VA_ARGS__)
+#define do_mca_print(...)     __do_mca_callout(mca_print,     __VA_ARGS__)
+static inline void do_mca_exc_flt(struct mce *mce, int fake)
+{
+	u64 ctl;
+	if (mca_exc_flt) {
+		ctl = mce_rdmsrl(MSR_IA32_MCx_CTL(mce->bank));
+		if (mce->status & MCI_STATUS_MISCV)
+			mce->misc = mce_rdmsrl(MSR_IA32_MCx_MISC(mce->bank));
+		if (mce->status & MCI_STATUS_ADDRV)
+			mce->addr = mce_rdmsrl(MSR_IA32_MCx_ADDR(mce->bank));
+		mca_exc_flt(mce, ctl, fake);
+	}
+}
+static inline void do_mca_poll(struct mce *mce, int fake)
+{
+	u64 ctl;
+	if (mca_poll) {
+		ctl = mce_rdmsrl(MSR_IA32_MCx_CTL(mce->bank));
+		mca_poll(mce, ctl, fake);
+	}
+}
+static inline void do_mca_exc_log(struct mce *mce, int fake, int nwo,
+				  char *msg, int bad, int worst)
+{
+	u64 ctl;
+	if (mca_exc_log) {
+		ctl = mce_rdmsrl(MSR_IA32_MCx_CTL(mce->bank));
+		mca_exc_log(mce, ctl, fake, nwo, msg, bad, worst);
+	}
+}
 #endif
 
 struct mca_config mca_cfg __read_mostly = {
@@ -334,6 +370,9 @@ static void wait_for_panic(void)
 static void mce_panic(char *msg, struct mce *final, char *exp)
 {
 	int i, apei_err = 0;
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_panic(final, msg, exp, fake_panic);
+#endif
 
 	if (!fake_panic) {
 		/*
@@ -655,6 +694,9 @@ void machine_check_poll(enum mcp_flags flags, mce_banks_t *b)
 		 */
 		if (!(flags & MCP_DONTLOG) && !mca_cfg.dont_log_ce)
 			mce_log(&m);
+#ifdef CONFIG_X86_EARLYMIC
+		do_mca_poll(&m, __this_cpu_read(injectm.finished));
+#endif
 
 		/*
 		 * Clear state for this bank.
@@ -1057,8 +1099,16 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 	DECLARE_BITMAP(toclear, MAX_NR_BANKS);
 	DECLARE_BITMAP(valid_banks, MAX_NR_BANKS);
 	char *msg = "Unknown";
+#ifdef CONFIG_X86_EARLYMIC
+	int entry = 0, fake = 0;
+#endif
 
+#ifdef CONFIG_X86_EARLYMIC
+	entry = atomic_inc_return(&mce_entry);
+	fake = __this_cpu_read(injectm.finished);
+#else
 	atomic_inc(&mce_entry);
+#endif
 
 	this_cpu_inc(mce_exception_count);
 
@@ -1089,6 +1139,9 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 	 * because the first one to see it will clear it.
 	 */
 	order = mce_start(&no_way_out);
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_entry(&m, fake, no_way_out, entry, msg);
+#endif
 	for (i = 0; i < cfg->banks; i++) {
 		__clear_bit(i, toclear);
 		if (!test_bit(i, valid_banks))
@@ -1109,8 +1162,12 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 		 * machine_check_poll. Leave them alone, unless this panics.
 		 */
 		if (!(m.status & (cfg->ser ? MCI_STATUS_S : MCI_STATUS_UC)) &&
-			!no_way_out)
+			!no_way_out) {
+#ifdef CONFIG_X86_EARLYMIC
+			do_mca_exc_flt(&m, fake);
+#endif
 			continue;
+		}
 
 		/*
 		 * Set taint even when machine check was not enabled.
@@ -1156,6 +1213,9 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 
 	/* mce_clear_state will clear *final, save locally for use later */
 	m = *final;
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_log(&m, fake, no_way_out, msg, worst, worst);
+#endif
 
 	if (!no_way_out)
 		mce_clear_state(toclear);
@@ -1166,6 +1226,9 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 	 */
 	if (mce_end(order) < 0)
 		no_way_out = worst >= MCE_PANIC_SEVERITY;
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_exit(&m, no_way_out, worst, entry, order);
+#endif
 
 	/*
 	 * At insane "tolerant" levels we take no action. Otherwise

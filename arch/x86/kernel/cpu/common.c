@@ -841,6 +841,16 @@ static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 
 	generic_identify(c);
 
+#ifdef CONFIG_X86_EARLYMIC
+	/*
+	 * KNC does not advertise MCE/MCA in CPUID, but it does implement the MCA
+	 * bank MSRs; force the caps so mce_available() is true and mcheck inits
+	 * (required for RAS/micras machine-check interception).
+	 */
+	set_cpu_cap(c, X86_FEATURE_MCA);
+	set_cpu_cap(c, X86_FEATURE_MCE);
+#endif
+
 	if (this_cpu->c_identify)
 		this_cpu->c_identify(c);
 
