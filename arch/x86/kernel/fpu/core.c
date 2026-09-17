@@ -116,6 +116,11 @@ void __kernel_fpu_end(void)
 {
 	struct fpu *fpu = &current->thread.fpu;
 
+#ifdef CONFIG_MK1OM
+	/* Put the user mask registers back before the data registers. */
+	if (fpu->initialized)
+		restore_mask_regs();
+#endif
 	if (fpu->initialized)
 		copy_kernel_to_fpregs(&fpu->state);
 
@@ -184,6 +189,9 @@ void fpstate_init(union fpregs_state *state)
 		fpstate_init_fxstate(&state->fxsave);
 	else
 		fpstate_init_fstate(&state->fsave);
+#ifdef CONFIG_X86_EARLYMIC
+	state->xsave.vpu.vxcsr = VXCSR_DEFAULT;
+#endif
 }
 EXPORT_SYMBOL_GPL(fpstate_init);
 
@@ -323,10 +331,26 @@ void fpu__restore(struct fpu *fpu)
 	trace_x86_fpu_before_restore(fpu);
 	fpregs_activate(fpu);
 	copy_kernel_to_fpregs(&fpu->state);
+#ifdef CONFIG_MK1OM
+	/* Data registers just loaded; complete with the VPU mask regs. */
+	restore_mask_regs();
+#endif
 	trace_x86_fpu_after_restore(fpu);
 	kernel_fpu_enable();
 }
 EXPORT_SYMBOL_GPL(fpu__restore);
+
+#ifdef CONFIG_MK1OM
+/* KNC: reload the current task's vector mask registers (k0-k7) from its fpstate. */
+void restore_mask_regs(void)
+{
+	struct fpu *fpu = &current->thread.fpu;
+
+	if (unlikely(mic_restore_mask_regs(fpu)))
+		force_sig(SIGSEGV, current);
+}
+EXPORT_SYMBOL_GPL(restore_mask_regs);
+#endif
 
 /*
  * Drops current FPU state: deactivates the fpregs and
@@ -364,6 +388,10 @@ void fpu__drop(struct fpu *fpu)
  */
 static inline void copy_init_fpstate_to_fpregs(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	copy_kernel_to_fpregs(&init_fpstate);
+	return;
+#endif
 	if (use_xsave())
 		copy_kernel_to_xregs(&init_fpstate.xsave, -1);
 	else if (static_cpu_has(X86_FEATURE_FXSR))

@@ -22,6 +22,13 @@
 /* Supervisor features */
 #define XFEATURE_MASK_SUPERVISOR (XFEATURE_MASK_PT)
 
+#ifdef CONFIG_X86_EARLYMIC
+/* KNC: FP/SSE/YMM plus the VPU block */
+#define XCNTXT_MASK		(XFEATURE_MASK_FP | \
+				 XFEATURE_MASK_SSE | \
+				 XFEATURE_MASK_YMM | \
+				 XFEATURE_MASK_ZMM)
+#else
 /* All currently supported features */
 #define XCNTXT_MASK		(XFEATURE_MASK_FP | \
 				 XFEATURE_MASK_SSE | \
@@ -32,6 +39,7 @@
 				 XFEATURE_MASK_PKRU | \
 				 XFEATURE_MASK_BNDREGS | \
 				 XFEATURE_MASK_BNDCSR)
+#endif
 
 #ifdef CONFIG_X86_64
 #define REX_PREFIX	"0x48, "

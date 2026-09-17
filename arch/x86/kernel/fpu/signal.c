@@ -122,6 +122,17 @@ static inline int copy_fpregs_to_sigframe(struct xregs_state __user *buf)
 {
 	int err;
 
+#ifdef CONFIG_X86_EARLYMIC
+	/* KNC: fxsave plus the VPU block; zero the header like xsave would. */
+	err = __clear_user(&buf->header, sizeof(buf->header));
+	if (!err)
+		err = copy_fxregs_to_user(&buf->i387);
+	if (!err)
+		err = save_vpu_checking((struct vpustate_struct __force *)&buf->vpu);
+	if (unlikely(err) && __clear_user(buf, fpu_user_xstate_size))
+		err = -EFAULT;
+	return err;
+#endif
 	if (use_xsave())
 		err = copy_xregs_to_user(buf);
 	else if (use_fxsr())
@@ -247,6 +258,17 @@ sanitize_restored_xstate(struct task_struct *tsk,
  */
 static inline int copy_user_to_fpregs_zeroing(void __user *buf, u64 xbv, int fx_only)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	struct xregs_state *xstate = ((__force struct xregs_state *)buf);
+	int err = copy_user_to_fxregs(buf);
+
+	if (err)
+		return err;
+	/* A frame without the xstate part (fx_only) carries no VPU block. */
+	if (fx_only)
+		return restore_vpu_checking(&init_fpstate.xsave.vpu);
+	return restore_vpu_checking(&xstate->vpu);
+#endif
 	if (use_xsave()) {
 		if ((unsigned long)buf % 64 || fx_only) {
 			u64 init_bv = xfeatures_mask & ~XFEATURE_MASK_FPSSE;

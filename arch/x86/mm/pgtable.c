@@ -426,9 +426,19 @@ int ptep_set_access_flags(struct vm_area_struct *vma,
 			  pte_t entry, int dirty)
 {
 	int changed = !pte_same(*ptep, entry);
+	int i;
+	pteval_t val;
 
-	if (changed && dirty)
+	if (changed && dirty) {
 		*ptep = entry;
+		if (pte_64k(entry)) {
+			BUG_ON(PTR_ALIGN(ptep, 0x40) != ptep);
+			for (i = 1; i < 16; i++) {
+				val = (pte_pfn(entry) + i) << PAGE_SHIFT | pte_flags(entry);
+				ptep[i] = native_make_pte(val);
+			}
+		}
+	}
 
 	return changed;
 }
