@@ -121,6 +121,10 @@ obj-$(CONFIG_JAILHOUSE_GUEST)	+= jailhouse.o
 
 obj-$(CONFIG_EISA)		+= eisa.o
 obj-$(CONFIG_PCSPKR_PLATFORM)	+= pcspeaker.o
+obj-$(CONFIG_X86_MICPCI)	+= intelmic.o
+obj-$(CONFIG_MK1OM)		+= mic_etc.o
+obj-$(CONFIG_MK1OM)		+= mic_v30_stubs.o
+obj-$(CONFIG_X86_EARLYMIC)	+= mic_cacheflush.o
 
 obj-$(CONFIG_X86_CHECK_BIOS_CORRUPTION) += check.o
 

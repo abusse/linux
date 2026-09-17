@@ -19,10 +19,14 @@ config CPU_IDLE_MULTIPLE_DRIVERS
         bool
 
 config CPU_IDLE_GOV_LADDER
-	bool "Ladder governor (for periodic timer tick)"
+	bool
+	depends on CPU_IDLE && !MIC_PM
+	default y
 
 config CPU_IDLE_GOV_MENU
-	bool "Menu governor (for tickless system)"
+	bool
+	depends on CPU_IDLE && NO_HZ && !MIC_PM
+	default y
 
 config CPU_IDLE_GOV_TEO
 	bool "Timer events oriented (TEO) governor (for tickless systems)"

@@ -72,6 +72,7 @@ struct cpuidle_state {
 #define CPUIDLE_FLAG_POLLING	BIT(0) /* polling state */
 #define CPUIDLE_FLAG_COUPLED	BIT(1) /* state applies to multiple cpus */
 #define CPUIDLE_FLAG_TIMER_STOP BIT(2) /* timer is stopped on this state */
+#define CPUIDLE_FLAG_IGNORE	BIT(8) /* ignore during this idle period */
 
 struct cpuidle_device_kobj;
 struct cpuidle_state_kobj;

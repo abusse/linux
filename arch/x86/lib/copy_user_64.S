@@ -272,18 +272,32 @@ ENTRY(__copy_user_nocache)
 2:	movq 1*8(%rsi),%r9
 3:	movq 2*8(%rsi),%r10
 4:	movq 3*8(%rsi),%r11
+#ifdef CONFIG_X86_EARLYMIC
+5:	movq %r8,(%rdi)
+6:	movq %r9,1*8(%rdi)
+7:	movq %r10,2*8(%rdi)
+8:	movq %r11,3*8(%rdi)
+#else
 5:	movnti %r8,(%rdi)
 6:	movnti %r9,1*8(%rdi)
 7:	movnti %r10,2*8(%rdi)
 8:	movnti %r11,3*8(%rdi)
+#endif
 9:	movq 4*8(%rsi),%r8
 10:	movq 5*8(%rsi),%r9
 11:	movq 6*8(%rsi),%r10
 12:	movq 7*8(%rsi),%r11
+#ifdef CONFIG_X86_EARLYMIC
+13:	movq %r8,4*8(%rdi)
+14:	movq %r9,5*8(%rdi)
+15:	movq %r10,6*8(%rdi)
+16:	movq %r11,7*8(%rdi)
+#else
 13:	movnti %r8,4*8(%rdi)
 14:	movnti %r9,5*8(%rdi)
 15:	movnti %r10,6*8(%rdi)
 16:	movnti %r11,7*8(%rdi)
+#endif
 	leaq 64(%rsi),%rsi
 	leaq 64(%rdi),%rdi
 	decl %ecx
@@ -299,7 +313,11 @@ ENTRY(__copy_user_nocache)
 	/* Perform 8-byte nocache loop-copy */
 .L_8b_nocache_copy_loop:
 20:	movq (%rsi),%r8
+#ifdef CONFIG_X86_EARLYMIC
+21:	movq %r8,(%rdi)
+#else
 21:	movnti %r8,(%rdi)
+#endif
 	leaq 8(%rsi),%rsi
 	leaq 8(%rdi),%rdi
 	decl %ecx
@@ -323,7 +341,11 @@ ENTRY(__copy_user_nocache)
 
 	/* Perform 4-byte nocache copy: */
 30:	movl (%rsi),%r8d
+#ifdef CONFIG_X86_EARLYMIC
+31:	movl %r8d,(%rdi)
+#else
 31:	movnti %r8d,(%rdi)
+#endif
 	leaq 4(%rsi),%rsi
 	leaq 4(%rdi),%rdi
 
@@ -346,7 +368,9 @@ ENTRY(__copy_user_nocache)
 .L_finish_copy:
 	xorl %eax,%eax
 	ASM_CLAC
+#ifndef CONFIG_X86_EARLYMIC
 	sfence
+#endif
 	ret
 
 	.section .fixup,"ax"
@@ -363,7 +387,9 @@ ENTRY(__copy_user_nocache)
 .L_fixup_1b_copy:
 	movl %ecx,%edx
 .L_fixup_handle_tail:
+#ifndef CONFIG_X86_EARLYMIC
 	sfence
+#endif
 	jmp .Lcopy_user_handle_tail
 	.previous
 

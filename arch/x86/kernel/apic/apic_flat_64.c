@@ -44,7 +44,13 @@ void flat_init_apic_ldr(void)
 	id = 1UL << num;
 	apic_write(APIC_DFR, APIC_DFR_FLAT);
 	val = apic_read(APIC_LDR) & ~APIC_LDR_MASK;
+#ifdef CONFIG_X86_EARLYMIC
+	/* KNF LDR erratum: physflat must not set a logical id */
+	if (apic != &apic_physflat)
+		val |= SET_APIC_LOGICAL_ID(id);
+#else
 	val |= SET_APIC_LOGICAL_ID(id);
+#endif
 	apic_write(APIC_LDR, val);
 }
 
@@ -78,12 +84,27 @@ flat_send_IPI_mask_allbutself(const struct cpumask *cpumask, int vector)
 
 static unsigned int flat_get_apic_id(unsigned long x)
 {
-	return (x >> 24) & 0xFF;
+	unsigned int id;
+
+#ifdef CONFIG_X86_EARLYMIC
+	id = (((x) >> 23) & 0x1FFu);	/* MIC: 9-bit APIC id at bits 31:23 */
+#else
+	id = (((x)>>24) & 0xFFu);
+#endif
+
+	return id;
 }
 
 static u32 set_apic_id(unsigned int id)
 {
-	return (id & 0xFF) << 24;
+	unsigned long x;
+
+#ifdef CONFIG_X86_EARLYMIC
+	x = ((id & 0x1FFu) << 23);	/* MIC: 9-bit APIC id */
+#else
+	x = ((id & 0xFFu)<<24);
+#endif
+	return x;
 }
 
 static unsigned int read_xapic_id(void)
@@ -131,6 +152,11 @@ static struct apic apic_flat __ro_after_init = {
 
 	.get_apic_id			= flat_get_apic_id,
 	.set_apic_id			= set_apic_id,
+#ifdef CONFIG_X86_EARLYMIC
+	.apic_id_mask			= 0x1FFu << 23,
+#else
+	.apic_id_mask			= 0xFFu << 24,
+#endif
 
 	.calc_dest_apicid		= apic_flat_calc_apicid,
 
@@ -224,6 +250,11 @@ static struct apic apic_physflat __ro_after_init = {
 
 	.get_apic_id			= flat_get_apic_id,
 	.set_apic_id			= set_apic_id,
+#ifdef CONFIG_X86_EARLYMIC
+	.apic_id_mask			= 0x1FFu << 23,
+#else
+	.apic_id_mask			= 0xFFu << 24,
+#endif
 
 	.calc_dest_apicid		= apic_default_calc_apicid,
 
