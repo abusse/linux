@@ -3,17 +3,25 @@
 
 #include <linux/types.h>
 #include <asm/processor.h>
+#include <asm/i387.h>  //MICBUGBUG: include file loop!
+#ifdef CONFIG_X86_EARLYMIC
+#include <asm/mic_ni.h>
+#endif
 
 #define XSTATE_CPUID		0x0000000d
 
 #define XSTATE_FP		0x1
 #define XSTATE_SSE		0x2
 #define XSTATE_YMM		0x4
+#ifdef CONFIG_X86_EARLYMIC
+#define XSTATE_ZMM		0x8
+#else
 #define XSTATE_BNDREGS		0x8
 #define XSTATE_BNDCSR		0x10
 #define XSTATE_OPMASK		0x20
 #define XSTATE_ZMM_Hi256	0x40
 #define XSTATE_Hi16_ZMM		0x80
+#endif
 
 #define XSTATE_FPSSE	(XSTATE_FP | XSTATE_SSE)
 #define XSTATE_AVX512	(XSTATE_OPMASK | XSTATE_ZMM_Hi256 | XSTATE_Hi16_ZMM)
@@ -28,6 +36,12 @@
 #define XSAVE_YMM_SIZE	    256
 #define XSAVE_YMM_OFFSET    (XSAVE_HDR_SIZE + XSAVE_HDR_OFFSET)
 
+#ifdef CONFIG_X86_EARLYMIC
+/* KNC: FP/SSE/YMM plus the ZMM slot; no MPX/BND -> no eager-only state. */
+#define XSTATE_LAZY	(XSTATE_FP | XSTATE_SSE | XSTATE_YMM | XSTATE_ZMM)
+#define XSTATE_EAGER	0
+#define XCNTXT_MASK	(XSTATE_LAZY | XSTATE_EAGER)
+#else
 /* Supported features which support lazy state saving */
 #define XSTATE_LAZY	(XSTATE_FP | XSTATE_SSE | XSTATE_YMM		      \
 			| XSTATE_OPMASK | XSTATE_ZMM_Hi256 | XSTATE_Hi16_ZMM)
@@ -37,6 +51,7 @@
 
 /* All currently supported features */
 #define XCNTXT_MASK	(XSTATE_LAZY | XSTATE_EAGER)
+#endif
 
 #ifdef CONFIG_X86_64
 #define REX_PREFIX	"0x48, "
@@ -196,9 +211,32 @@ static inline void fpu_xsave(struct fpu *fpu)
 /*
  * Restore xstate context for new process during context switch.
  */
+//MICBUGBUG: workaround include file loop
+static inline int fxrstor_checking(struct i387_fxsave_struct *fx);
+static inline int fxsave_user(struct i387_fxsave_struct __user *fx);
+
+#ifdef CONFIG_MK1OM
+static inline int _mic_restore_mask_regs(struct xsave_struct *fx)
+{
+	return __mic_restore_mask_regs(&fx->vpu);
+}
+#endif
+
 static inline int fpu_xrstor_checking(struct xsave_struct *fx)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	int err = fxrstor_checking(&fx->i387);
+#ifdef CONFIG_ML1OM
+	if (!err)
+		err = restore_vpu_checking(&fx->vpu);
+#else
+	if (!err)
+		err = restore_vpu_checking_nomask(&fx->vpu);
+#endif
+	return err;
+#else
 	return xrstor_state(fx, -1);
+#endif
 }
 
 /*
@@ -214,7 +252,9 @@ static inline int fpu_xrstor_checking(struct xsave_struct *fx)
 static inline int xsave_user(struct xsave_struct __user *buf)
 {
 	int err;
-
+#ifdef CONFIG_X86_EARLYMIC
+	struct xsave_struct *xstate = ((__force struct xsave_struct *)buf);
+#endif
 	/*
 	 * Clear the xsave header first, so that reserved fields are
 	 * initialized to zero.
@@ -222,13 +262,18 @@ static inline int xsave_user(struct xsave_struct __user *buf)
 	err = __clear_user(&buf->xsave_hdr, sizeof(buf->xsave_hdr));
 	if (unlikely(err))
 		return -EFAULT;
-
+#ifdef CONFIG_X86_EARLYMIC
+	err = fxsave_user(&xstate->i387);
+	if (!err)
+		err = save_vpu_checking(&xstate->vpu);
+#else
 	__asm__ __volatile__(ASM_STAC "\n"
 			     "1:"XSAVE"\n"
 			     "2: " ASM_CLAC "\n"
 			     xstate_fault
 			     : "D" (buf), "a" (-1), "d" (-1), "0" (0)
 			     : "memory");
+#endif
 	return err;
 }
 
@@ -239,6 +284,11 @@ static inline int xrestore_user(struct xsave_struct __user *buf, u64 mask)
 {
 	int err = 0;
 	struct xsave_struct *xstate = ((__force struct xsave_struct *)buf);
+#ifdef CONFIG_X86_EARLYMIC
+	err = fxrstor_checking(&xstate->i387);
+	if (!err)
+		err = restore_vpu_checking(&xstate->vpu);
+#else
 	u32 lmask = mask;
 	u32 hmask = mask >> 32;
 
@@ -248,6 +298,7 @@ static inline int xrestore_user(struct xsave_struct __user *buf, u64 mask)
 			     xstate_fault
 			     : "D" (xstate), "a" (lmask), "d" (hmask), "0" (0)
 			     : "memory");	/* memory required? */
+#endif
 	return err;
 }
 
