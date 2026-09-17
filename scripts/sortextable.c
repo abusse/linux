@@ -310,6 +310,7 @@ do_file(char const *const fname)
 		break;
 	case EM_386:
 	case EM_X86_64:
+	case 181: /* EM_K1OM (Knights Corner) */
 		custom_sort = x86_sort_relative_table;
 		break;
 
