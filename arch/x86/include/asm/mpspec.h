@@ -75,6 +75,7 @@ static inline void e820__memblock_alloc_reserved_mpc_new(void) { }
 
 int generic_processor_info(int apicid);
 
+
 #define PHYSID_ARRAY_SIZE	BITS_TO_LONGS(MAX_LOCAL_APIC)
 
 struct physid_mask {

@@ -236,8 +236,15 @@ static void __init probe_page_size_mask(void)
 		direct_gbpages = 0;
 
 	/* Enable PSE if available */
+	/*
+	 * KNF/KNC Si bug: setting CR4.PSE on the BSP prevents TLB-entry sharing
+	 * between the BSP thread and the other threads on the same core, so leave
+	 * PSE off on MIC (2M/64k huge pages are handled via the KNC pte helpers).
+	 */
+#if !defined(CONFIG_ML1OM) && !defined(CONFIG_MK1OM)
 	if (boot_cpu_has(X86_FEATURE_PSE))
 		cr4_set_bits_and_update_boot(X86_CR4_PSE);
+#endif
 
 	/* Enable PGE if available */
 	__supported_pte_mask &= ~_PAGE_GLOBAL;

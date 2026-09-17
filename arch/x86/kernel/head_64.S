@@ -1,4 +1,28 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+/* * Copyright (c) Intel Corporation (2011).
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
+
 /*
  *  linux/arch/x86/kernel/head_64.S -- start in 32bit and switch to 64bit
  *
@@ -42,6 +66,119 @@ L3_START_KERNEL = pud_index(__START_KERNEL_map)
 
 	.text
 	__HEAD
+#ifdef CONFIG_X86_MIC_EMULATION
+	.code32
+	.balign 4
+r_base = .
+startup_32:
+	cli
+/*
+	movl	$__KERNEL_DS, %eax	# Initialize the %ds segment register
+	movl	%eax, %ds
+*/
+
+	lgdt    pGDT32 - __START_KERNEL_map
+
+	/*
+	 *  Enable MTRRs with default type UC
+	 *  and set MTTR0 to define 0-1GB as WB
+	 */
+	xor %edx, %edx
+	mov $0x06,%eax	/* PhysBase 0, Type WB */
+	mov $0x200,%ecx	/* IA32_MTRR_PHYSBASE0 */
+	wrmsr
+	mov $0xff, %edx
+	mov $0xc0000800, %eax
+	mov $0x201, %ecx	/* IA32_MTRR_PHYSMASK0 */
+	wrmsr
+
+	mov $0x800,%eax		/* Enable variable range MTRRs, default UC */
+	xor %edx, %edx
+	mov $0x2ff,%ecx		/* IA32_MTRR_DEF_TYPE */
+	wrmsr
+
+	/* The code below (page table setup) expects the physical start of the kernel in edi */
+	movl	$0x100000, %edi
+
+	/* Enable PAE mode */
+	movl	$X86_CR4_PAE, %eax
+	movl	%eax, %cr4		# Enable PAE mode
+
+					# Setup trampoline 4 level pagetables
+	leal	(init_level4_pgt - r_base)(%edi), %eax
+	movl	%eax, %cr3
+
+	/* Enable Long mode in EFER */
+	xorl	%eax,%eax
+	movl	$MSR_EFER, %ecx
+	rdmsr
+
+	/* Enable Long Mode */
+	btsl    $_EFER_LME, %eax
+	xorl	%edx, %edx
+	wrmsr
+
+	xorl	%eax,%eax
+
+	# Enable paging and in turn activate Long Mode
+	# Enable protected mode
+
+	mov	$(X86_CR0_PG | X86_CR0_PE), %eax
+	mov	%eax, %cr0
+	/*
+	 * At this point we're in long mode but in 32bit compatibility mode
+	 * with EFER.LME = 1, CS.L = 0, CS.D = 1 (and in turn
+	 * EFER.LMA = 1). Now we want to jump in 64bit mode, to do that we use
+	 * the new gdt/idt that has __KERNEL_CS with CS.L = 1.
+	 */
+	ljmp $__KERNEL_CS, $(startup_64 - __START_KERNEL_map)
+
+	# Duplicate the global descriptor table
+	# so the kernel can live anywhere
+	.balign 4
+tgdt:
+	.short	tgdt_end - tgdt		# gdt limit
+	.long	tgdt - r_base
+	.short 0
+	.quad	0x00cf9b000000ffff	# __KERNEL32_CS
+	.quad	0x00af9b000000ffff	# __KERNEL_CS
+	.quad	0x00cf93000000ffff	# __KERNEL_DS
+tgdt_end:
+
+	.balign 4
+startup_32_vector:
+	.long	startup_32 - r_base
+	.word	__KERNEL32_CS, 0
+
+	.balign 4
+startup_64_vector:
+	.long	startup_64 - r_base
+	.word	__KERNEL_CS, 0
+
+ENTRY(sv_boot_level4_pgt)
+	.quad	level3_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
+	.fill	510,8,0
+	.quad	level3_kernel_pgt - __START_KERNEL_map + _KERNPG_TABLE
+
+ENTRY(cpu_gdt_table)
+	.quad   0x0000000000000000      /* NULL descriptor */
+	.quad   0x0                     /* unused */
+	.quad   0x00af9a000000ffff      /* __KERNEL_CS */
+	.quad   0x00cf92000000ffff      /* __KERNEL_DS */
+	.quad   0x00cffa000000ffff      /* __USER32_CS */
+	.quad   0x00cff2000000ffff      /* __USER_DS, __USER32_DS  */
+	.quad   0x00affa000000ffff      /* __USER_CS */
+	.quad   0x00cf9a000000ffff      /* __KERNEL32_CS */
+	.quad   0,0                     /* TSS */
+	.quad   0,0                     /* LDT */
+	.quad   0,0,0                   /* three TLS descriptors */
+	.quad   0x0000f40000000000      /* node/CPU stored in limit */
+gdt_end:
+	.globl pGDT32
+pGDT32:
+	.word   gdt_end-cpu_gdt_table-1
+	.long   cpu_gdt_table-__START_KERNEL_map
+#endif /* CONFIG_X86_MIC_EMULATION */
 	.code64
 SYM_CODE_START_NOALIGN(startup_64)
 	UNWIND_HINT_END_OF_STACK
@@ -181,7 +318,11 @@ SYM_INNER_LABEL(secondary_startup_64_no_verify, SYM_L_GLOBAL)
 #endif
 
 	/* Enable PAE mode, PGE and LA57 */
+#ifndef CONFIG_X86_EARLYMIC
 	orl	$(X86_CR4_PAE | X86_CR4_PGE), %ecx
+#else
+	orl	$(X86_CR4_PAE), %ecx		/* no PGE on KNC */
+#endif
 #ifdef CONFIG_X86_5LEVEL
 	testl	$1, __pgtable_l5_enabled(%rip)
 	jz	1f
@@ -351,6 +492,26 @@ SYM_INNER_LABEL(secondary_startup_64_no_verify, SYM_L_GLOBAL)
 	 * Note that, on SMP, the boot cpu uses init data section until
 	 * the per cpu areas are set up.
 	 */
+
+	mov ap_code(%rip), %ebx
+	testl	%ebx, %ebx
+	jz	skip_for_bsp2
+
+	/* use our apic id to look up our gs address in the per cpu gs map */
+	shl $3,%ecx						/* get offset into gs address array */
+	lea smp_gs_map(%rip),%r11		/* get the base of the gs address map */
+	add %rcx,%r11					/* offset to the correct location for this cpu */
+	movq (%r11),%rax				/* get our gs address */
+
+	mov ap_code(%rip), %ebx
+	testl %ebx, %ebx
+	jnz  skip_for_secondary2
+
+skip_for_bsp2:
+	movq	initial_gs(%rip),%rax
+
+skip_for_secondary2:   
+
 	movl	$MSR_GS_BASE,%ecx
 #ifndef CONFIG_SMP
 	leaq	INIT_PER_CPU_VAR(fixed_percpu_data)(%rip), %rdx
@@ -727,6 +888,13 @@ SYM_DATA_END(level1_fixmap_pgt)
 	.align 16
 
 SYM_DATA(smpboot_control,		.long 0)
+
+	.align 16
+SYM_DATA(smp_stack_pointer_map,	.fill 256, 8, 0)
+	.align 16
+SYM_DATA(smp_gs_map,		.fill 256, 8, GDT_ENTRIES*8-1)
+SYM_DATA(ap_code,		.fill 1, 8, 0)
+SYM_DATA(apic_base_addr,	.fill 1, 8, 0)
 
 	.align 16
 /* This must match the first entry in level2_kernel_pgt */

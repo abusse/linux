@@ -116,6 +116,9 @@ void calculate_max_logical_packages(void);
 void native_smp_cpus_done(unsigned int max_cpus);
 int common_cpu_up(unsigned int cpunum, struct task_struct *tidle);
 int native_kick_ap(unsigned int cpu, struct task_struct *tidle);
+#ifdef CONFIG_PARALLEL_AP_BOOT
+int native_cpu_up_parallel(unsigned int cpunum, struct task_struct *tidle);
+#endif
 int native_cpu_disable(void);
 void __noreturn hlt_play_dead(void);
 void native_play_dead(void);

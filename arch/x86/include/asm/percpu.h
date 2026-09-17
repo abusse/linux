@@ -267,8 +267,10 @@ do {									\
 	old__.var;							\
 })
 
+#ifndef CONFIG_MK1OM	/* k1om lacks CMPXCHG16B */
 #define raw_cpu_cmpxchg128(pcp, oval, nval)	percpu_cmpxchg128_op(16,         , pcp, oval, nval)
 #define this_cpu_cmpxchg128(pcp, oval, nval)	percpu_cmpxchg128_op(16, volatile, pcp, oval, nval)
+#endif
 #endif
 
 /*

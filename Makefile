@@ -403,6 +403,12 @@ endif
 ifeq ($(ARCH),x86_64)
         SRCARCH := x86
 endif
+ifeq ($(ARCH),l1om)
+        SRCARCH := x86
+endif
+ifeq ($(ARCH),k1om)
+        SRCARCH := x86
+endif
 
 # Additional ARCH settings for sparc
 ifeq ($(ARCH),sparc32)
