@@ -150,6 +150,30 @@ __gmbus_write(64, q)
 #define I915_GMBUS_READ64(reg)	gmbus_read64(dbox_mmio_base, (reg))
 #define I915_GMBUS_WRITE64(reg, val)	gmbus_write64(dbox_mmio_base, (reg), (val))
 
+
+#ifdef CONFIG_X86_EARLYMIC
+#include <linux/jiffies.h>
+#include <linux/delay.h>
+#ifndef wait_for
+#define wait_for(COND, MS) ({ \
+	unsigned long timeout__ = jiffies + msecs_to_jiffies(MS) + 1; \
+	int ret__ = 0; \
+	while (!(COND)) { \
+		if (time_after(jiffies, timeout__)) { ret__ = -ETIMEDOUT; break; } \
+		msleep(1); \
+	} ret__; })
+#endif
+#ifndef wait_for_atomic
+#define wait_for_atomic(COND, MS) ({ \
+	unsigned long timeout__ = jiffies + msecs_to_jiffies(MS) + 1; \
+	int ret__ = 0; \
+	while (!(COND)) { \
+		if (time_after(jiffies, timeout__)) { ret__ = -ETIMEDOUT; break; } \
+		cpu_relax(); \
+	} ret__; })
+#endif
+#endif /* CONFIG_X86_EARLYMIC */
+
 #endif
 
 

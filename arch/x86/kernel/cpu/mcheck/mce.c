@@ -49,6 +49,9 @@
 #include "mce-internal.h"
 
 static DEFINE_MUTEX(mce_chrdev_read_mutex);
+#ifdef CONFIG_X86_EARLYMIC
+EXPORT_SYMBOL_GPL(mce_chrdev_read_mutex);
+#endif
 
 #define rcu_dereference_check_mce(p) \
 	rcu_dereference_index_check((p), \
@@ -61,10 +64,37 @@ static DEFINE_MUTEX(mce_chrdev_read_mutex);
 #define SPINUNIT 100	/* 100ns */
 
 atomic_t mce_entry;
+#ifdef CONFIG_X86_EARLYMIC
+EXPORT_SYMBOL_GPL(mce_entry);
+#endif
 
 DEFINE_PER_CPU(unsigned, mce_exception_count);
 
 struct mce_bank *mce_banks __read_mostly;
+
+#ifdef CONFIG_X86_EARLYMIC
+/*
+ * KNC RAS intercept hooks. micras registers these to receive MC events and to
+ * report the CTL bank register the generic handler ignores. Exported so the
+ * out-of-tree micras module can set them; null when micras is not loaded.
+ */
+void (*mca_poll)(struct mce *, uint64_t, int);
+void (*mca_exc_flt)(struct mce *, uint64_t, int);
+void (*mca_exc_entry)(struct mce *, int, int, int, char *);
+void (*mca_exc_log)(struct mce *, uint64_t, int, int, char *, int, int);
+void (*mca_exc_panic)(struct mce *, char *, char *, int);
+void (*mca_exc_exit)(struct mce *, int, int, int, int);
+int  (*mca_print)(char *, ...) __attribute__((format(printf, 1, 2)));
+EXPORT_SYMBOL_GPL(mca_poll);
+EXPORT_SYMBOL_GPL(mca_exc_flt);
+EXPORT_SYMBOL_GPL(mca_exc_entry);
+EXPORT_SYMBOL_GPL(mca_exc_log);
+EXPORT_SYMBOL_GPL(mca_exc_panic);
+EXPORT_SYMBOL_GPL(mca_exc_exit);
+EXPORT_SYMBOL_GPL(mca_print);
+int mce_disabled __read_mostly;		/* mirrors mca_cfg.disabled for micras */
+EXPORT_SYMBOL_GPL(mce_disabled);
+#endif
 
 struct mca_config mca_cfg __read_mostly = {
 	.bootlog  = -1,
@@ -128,11 +158,14 @@ EXPORT_PER_CPU_SYMBOL_GPL(injectm);
  * separate MCEs from kernel messages to avoid bogus bug reports.
  */
 
-static struct mce_log mcelog = {
+struct mce_log mcelog = {
 	.signature	= MCE_LOG_SIGNATURE,
 	.len		= MCE_LOG_LEN,
 	.recordlen	= sizeof(struct mce),
 };
+#ifdef CONFIG_X86_EARLYMIC
+EXPORT_SYMBOL_GPL(mcelog);
+#endif
 
 void mce_log(struct mce *mce)
 {
