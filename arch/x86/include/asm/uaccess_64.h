@@ -46,6 +46,21 @@ copy_user_generic(void *to, const void *from, unsigned len)
 	return ret;
 }
 
+unsigned long
+copy_user_generic_vector(void *to, const void *from, unsigned len);
+
+static __must_check __always_inline unsigned long
+__copy_from_user_vector_inatomic(void *to, const void *from, unsigned len)
+{
+	return copy_user_generic_vector(to, from, len);
+}
+
+static __must_check __always_inline unsigned long
+__copy_to_user_vector_inatomic(void *to, const void *from, unsigned len)
+{
+	return copy_user_generic_vector(to, from, len);
+}
+
 __must_check unsigned long
 copy_in_user(void __user *to, const void __user *from, unsigned len);
 

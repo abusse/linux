@@ -21,6 +21,14 @@
 /* Supervisor features */
 #define XFEATURE_MASK_SUPERVISOR (XFEATURE_MASK_PT)
 
+#ifdef CONFIG_X86_EARLYMIC
+/* KNC: FP/SSE/YMM plus the VPU block; no MPX -> no eager-only state. */
+#define XFEATURE_MASK_LAZY	(XFEATURE_MASK_FP | \
+				 XFEATURE_MASK_SSE | \
+				 XFEATURE_MASK_YMM | \
+				 XFEATURE_MASK_ZMM)
+#define XFEATURE_MASK_EAGER	0
+#else
 /* Supported features which support lazy state saving */
 #define XFEATURE_MASK_LAZY	(XFEATURE_MASK_FP | \
 				 XFEATURE_MASK_SSE | \
@@ -33,6 +41,7 @@
 #define XFEATURE_MASK_EAGER	(XFEATURE_MASK_BNDREGS | \
 				 XFEATURE_MASK_BNDCSR | \
 				 XFEATURE_MASK_PKRU)
+#endif
 
 /* All currently supported features */
 #define XCNTXT_MASK	(XFEATURE_MASK_LAZY | XFEATURE_MASK_EAGER)

@@ -20,7 +20,6 @@
 #include "util/debug.h"
 
 #include <sys/prctl.h>
-#include <sys/resource.h>
 
 #include <semaphore.h>
 #include <pthread.h>

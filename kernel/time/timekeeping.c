@@ -683,7 +683,7 @@ EXPORT_SYMBOL(__getnstimeofday64);
  */
 void getnstimeofday64(struct timespec64 *ts)
 {
-	WARN_ON(__getnstimeofday64(ts));
+	WARN_ON_ONCE(__getnstimeofday64(ts));
 }
 EXPORT_SYMBOL(getnstimeofday64);
 
@@ -694,7 +694,7 @@ ktime_t ktime_get(void)
 	ktime_t base;
 	s64 nsecs;
 
-	WARN_ON(timekeeping_suspended);
+	WARN_ON_ONCE(timekeeping_suspended);
 
 	do {
 		seq = read_seqcount_begin(&tk_core.seq);
@@ -807,7 +807,7 @@ void ktime_get_ts64(struct timespec64 *ts)
 	s64 nsec;
 	unsigned int seq;
 
-	WARN_ON(timekeeping_suspended);
+	WARN_ON_ONCE(timekeeping_suspended);
 
 	do {
 		seq = read_seqcount_begin(&tk_core.seq);
