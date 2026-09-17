@@ -645,6 +645,10 @@ void math_state_restore(void)
 		force_sig(SIGSEGV, tsk);
 		return;
 	}
+#ifdef CONFIG_MK1OM
+	/* FPU regs just loaded lazily; complete the restore with KNC VPU mask regs */
+	restore_mask_regs();
+#endif
 
 	tsk->fpu_counter++;
 }
@@ -717,6 +721,21 @@ void __init early_trap_pf_init(void)
 	set_intr_gate(X86_TRAP_PF, &page_fault);
 #endif
 }
+
+#ifdef CONFIG_MK1OM
+/* k1om vector mask-register restore (ported from MPSS traps.c; called from FPU paths) */
+void restore_mask_regs(void)
+{
+	struct thread_info *thread = current_thread_info();
+	struct task_struct *tsk = thread->task;
+
+	if (unlikely(mic_restore_mask_regs(tsk))) {
+		force_sig(SIGSEGV, tsk);
+		return;
+	}
+}
+EXPORT_SYMBOL_GPL(restore_mask_regs);
+#endif
 
 void __init trap_init(void)
 {

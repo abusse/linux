@@ -1,3 +1,27 @@
+/* * Copyright (c) Intel Corporation (2011).
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
+
 /*
  *	Intel IO-APIC support for multi-Pentium hosts.
  *
@@ -43,6 +67,9 @@
 #include <linux/bootmem.h>
 #include <linux/dmar.h>
 #include <linux/hpet.h>
+#ifdef CONFIG_KDB
+#include <linux/kdb.h>
+#endif
 
 #include <asm/idle.h>
 #include <asm/io.h>
@@ -62,6 +89,9 @@
 #include <asm/hw_irq.h>
 
 #include <asm/apic.h>
+#ifdef CONFIG_X86_EARLYMIC
+#include <asm/mic_def.h>
+#endif
 
 #define __apicdebuginit(type) static type __init
 
@@ -100,7 +130,7 @@ int mpc_ioapic_id(int ioapic_idx)
 	return ioapics[ioapic_idx].mp_config.apicid;
 }
 
-unsigned int mpc_ioapic_addr(int ioapic_idx)
+unsigned long mpc_ioapic_addr(int ioapic_idx)
 {
 	return ioapics[ioapic_idx].mp_config.apicaddr;
 }
@@ -318,17 +348,27 @@ void io_apic_eoi(unsigned int apic, unsigned int vector)
 
 unsigned int native_io_apic_read(unsigned int apic, unsigned int reg)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	volatile u32 *io_apic = (volatile u32 *) io_apic_base(apic);
+	return readl((void __iomem *)(io_apic + reg));
+#else
 	struct io_apic __iomem *io_apic = io_apic_base(apic);
 	writel(reg, &io_apic->index);
 	return readl(&io_apic->data);
+#endif
 }
 
 void native_io_apic_write(unsigned int apic, unsigned int reg, unsigned int value)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	volatile u32 *io_apic = (volatile u32 *) io_apic_base(apic);
+	writel(value, (void __iomem *)(io_apic + reg));
+#else
 	struct io_apic __iomem *io_apic = io_apic_base(apic);
 
 	writel(reg, &io_apic->index);
 	writel(value, &io_apic->data);
+#endif
 }
 
 /*
@@ -1141,6 +1181,11 @@ next:
 
 		if (test_bit(vector, used_vectors))
 			goto next;
+
+#ifdef CONFIG_KDB
+		if (vector == KDBENTER_VECTOR)
+			goto next;
+#endif
 
 		for_each_cpu_and(new_cpu, tmp_mask, cpu_online_mask)
 			if (per_cpu(vector_irq, new_cpu)[vector] != -1)
@@ -2347,7 +2392,9 @@ int native_ioapic_set_affinity(struct irq_data *data,
 	ret = __ioapic_set_affinity(data, mask, &dest);
 	if (!ret) {
 		/* Only the high 8 bits are valid. */
+#ifndef CONFIG_X86_EARLYMIC
 		dest = SET_APIC_LOGICAL_ID(dest);
+#endif
 		__target_IO_APIC_irq(irq, dest, data->chip_data);
 		ret = IRQ_SET_MASK_OK_NOCOPY;
 	}
@@ -3007,6 +3054,79 @@ void destroy_irqs(unsigned int irq, unsigned int count)
 	for (i = 0; i < count; i++)
 		destroy_irq(irq + i);
 }
+
+#ifdef CONFIG_X86_EARLYMIC
+/*
+ * SBOX APIC ICR interrupt support (MIC host<->card doorbell IRQs).
+ * Ported from the MPSS 2.6.38 io_apic.c to the 3.0 irq_data-based irq_chip API.
+ */
+static void sbox_ack_apic_edge(struct irq_data *data)
+{
+	irq_complete_move(data->chip_data);
+	irq_move_irq(data);
+	ack_APIC_irq();
+}
+
+static void mask_sbox_irq(struct irq_data *data)
+{
+#ifdef CONFIG_MK1OM
+	void *icraddr = data->handler_data;
+	u32 value = readl(icraddr);
+	value |= 1 << 16;
+	writel(value, icraddr);
+#endif
+}
+
+static void unmask_sbox_irq(struct irq_data *data)
+{
+#ifdef CONFIG_MK1OM
+	void *icraddr = data->handler_data;
+	u32 value = readl(icraddr);
+	value &= ~(1 << 16);
+	writel(value, icraddr);
+#endif
+}
+
+static struct irq_chip sbox_chip = {
+	.name		= "SBOX-ICR",
+	.irq_unmask	= unmask_sbox_irq,
+	.irq_mask	= mask_sbox_irq,
+	.irq_ack	= sbox_ack_apic_edge,
+	.irq_retrigger	= ioapic_retrigger_irq,
+};
+
+static void setup_sbox_irq(int irq, int i)
+{
+	struct irq_cfg *cfg = irq_get_chip_data(irq);
+	void *icraddr = mic_sbox_mmio_va + SBOX_APICICR0 + (i * 8);
+	int vector = cfg->vector;
+
+	irq_set_chip_and_handler_name(irq, &sbox_chip, handle_edge_irq, "edge");
+	irq_set_handler_data(irq, icraddr);
+	/* Write the vector number and destination apicid into the SBOX ICR */
+	writel(vector, icraddr);
+	writel(boot_cpu_physical_apicid, icraddr + 4);
+	printk("irq %d for SBOX, vector=%d, icr=%u\n", irq, vector, readl(icraddr));
+}
+
+void arch_setup_sbox_irqs(unsigned int *irqs, int n)
+{
+	unsigned int irq;
+	int node = cpu_to_node(boot_cpu_physical_apicid);
+	unsigned int irq_want = MIC_NUM_IOAPIC_ENTRIES + 1;
+	int i;
+
+#ifdef CONFIG_INTR_REMAP
+	BUG_ON(intr_remapping_enabled);
+#endif
+	for (i = 0; i < n; i++) {
+		irq = create_irq_nr(irq_want, node);
+		BUG_ON(0 == irq);
+		setup_sbox_irq(irq, i);
+		irqs[i] = irq;
+	}
+}
+#endif /* CONFIG_X86_EARLYMIC */
 
 /*
  * MSI message composition
@@ -3785,7 +3905,7 @@ static __init int bad_ioapic_register(int idx)
 	reg_02.raw = io_apic_read(idx, 2);
 
 	if (reg_00.raw == -1 && reg_01.raw == -1 && reg_02.raw == -1) {
-		pr_warn("I/O APIC 0x%x registers return all ones, skipping!\n",
+		pr_warn("I/O APIC 0x%lx registers return all ones, skipping!\n",
 			mpc_ioapic_addr(idx));
 		return 1;
 	}
@@ -3793,7 +3913,7 @@ static __init int bad_ioapic_register(int idx)
 	return 0;
 }
 
-void __init mp_register_ioapic(int id, u32 address, u32 gsi_base)
+void __init mp_register_ioapic(int id, u64 address, u32 gsi_base)
 {
 	int idx = 0;
 	int entries;
@@ -3830,15 +3950,20 @@ void __init mp_register_ioapic(int id, u32 address, u32 gsi_base)
 	/*
 	 * The number of IO-APIC IRQ registers (== #pins):
 	 */
+#ifdef CONFIG_X86_EARLYMIC
+	ioapics[idx].nr_registers = MIC_NUM_IOAPIC_ENTRIES;
+	gsi_top = 0;
+#else
 	ioapics[idx].nr_registers = entries;
 
 	if (gsi_cfg->gsi_end >= gsi_top)
 		gsi_top = gsi_cfg->gsi_end + 1;
+#endif
 
-	pr_info("IOAPIC[%d]: apic_id %d, version %d, address 0x%x, GSI %d-%d\n",
-		idx, mpc_ioapic_id(idx),
-		mpc_ioapic_ver(idx), mpc_ioapic_addr(idx),
-		gsi_cfg->gsi_base, gsi_cfg->gsi_end);
+	printk(KERN_INFO "IOAPIC[%d]: apic_id %d, version %d, address 0x%lx, "
+	       "GSI %d-%d\n", idx, mpc_ioapic_id(idx),
+	       mpc_ioapic_ver(idx), mpc_ioapic_addr(idx),
+	       gsi_cfg->gsi_base, gsi_cfg->gsi_end);
 
 	nr_ioapics++;
 }

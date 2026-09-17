@@ -99,6 +99,9 @@ static __always_inline __pure bool use_xsaveopt(void)
 
 static __always_inline __pure bool use_xsave(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	return 1;
+#endif
 	return static_cpu_has(X86_FEATURE_XSAVE);
 }
 
@@ -172,6 +175,10 @@ static inline int fxsave_user(struct i387_fxsave_struct __user *fx)
 
 static inline int fxrstor_checking(struct i387_fxsave_struct *fx)
 {
+#ifdef CONFIG_MK1OM
+	/* KNC errata: MXCSR.DUE (bit 21) must be 1. Force it on. */
+	fx->mxcsr |= 0x200000;
+#endif
 	if (config_enabled(CONFIG_X86_32))
 		return check_insn(fxrstor %[fx], "=m" (*fx), [fx] "m" (*fx));
 	else if (config_enabled(CONFIG_AS_FXSAVEQ))
@@ -277,9 +284,25 @@ static inline int fpu_save_init(struct fpu *fpu)
 
 static inline int __save_init_fpu(struct task_struct *tsk)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* KNC: save x87/SSE then the vector/mask (vpu) state. */
+	fpu_fxsave(&tsk->thread.fpu);
+	save_init_vpu(&tsk->thread.fpu.state->xsave);
+	return 1;
+#else
 	return fpu_save_init(&tsk->thread.fpu);
+#endif
 }
 
+#ifdef CONFIG_MK1OM
+void restore_mask_regs(void);
+static inline int mic_restore_mask_regs(struct task_struct *tsk)
+{
+	struct xsave_struct *xstate = &tsk->thread.fpu.state->xsave;
+
+	return _mic_restore_mask_regs(xstate);
+}
+#endif
 static inline int fpu_restore_checking(struct fpu *fpu)
 {
 	if (use_xsave())
@@ -297,7 +320,9 @@ static inline int restore_fpu_checking(struct task_struct *tsk)
 	   values. "m" is a random variable that should be in L1 */
 	alternative_input(
 		ASM_NOP8 ASM_NOP2,
+#ifndef CONFIG_X86_EARLYMIC
 		"emms\n\t"		/* clear stack tags */
+#endif
 		"fildl %P[addr]",	/* set F?P to defined value */
 		X86_FEATURE_FXSAVE_LEAK,
 		[addr] "m" (tsk->thread.fpu.has_fpu));
@@ -467,6 +492,25 @@ static inline void switch_fpu_finish(struct task_struct *new, fpu_switch_t fpu)
 		if (unlikely(restore_fpu_checking(new)))
 			drop_init_fpu(new);
 	}
+#ifdef CONFIG_MK1OM
+	/*
+	 * KNC: kmov (mask-register access) does NOT trap on CR0.TS, so a lazily
+	 * scheduled task would read the previous task's stale mask registers.
+	 * Restore them eagerly on every switch to a used_math task whose FPU state
+	 * is allocated (the NULL guard avoids the fresh-task crash that the plain
+	 * MPSS code hit under lazy-FPU); clts/stts so kmov works while the FPU data
+	 * regs stay lazy.
+	 */
+	if (tsk_used_math(new) && new->thread.fpu.state) {
+		if (!fpu.preload)
+			clts();
+		/* low-level restore: returns err, never force_sig (we are in the
+		 * atomic context-switch path; a fault must not sleep/signal here) */
+		mic_restore_mask_regs(new);
+		if (!fpu.preload)
+			stts();
+	}
+#endif
 }
 
 /*

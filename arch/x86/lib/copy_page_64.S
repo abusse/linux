@@ -40,7 +40,9 @@ ENTRY(copy_page)
 	movq	0x8*6(%rsi), %r11
 	movq	0x8*7(%rsi), %r12
 
+#ifndef CONFIG_X86_EARLYMIC  /* MICBUGBUG */
 	prefetcht0 5*64(%rsi)
+#endif
 
 	movq	%rax, 0x8*0(%rdi)
 	movq	%rbx, 0x8*1(%rdi)

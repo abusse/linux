@@ -74,6 +74,30 @@ int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src)
 			return ret;
 		fpu_copy(dst, src);
 	}
+
+#ifdef CONFIG_X86_EARLYMIC
+	if (dst->thread.fpu.state) {
+		/*
+		 * No need to set this flag ? it should be inherited from the
+		 * parent thread since the threadinfo is copied from the
+		 * parent in setup_thread_stack()
+		 */
+		set_stopped_child_used_math(dst);
+		/*
+		 * Simulate FPU DNA
+		 * Undo the effects of unlazy_fpu in prepare_to_copy()
+		 */
+		preempt_disable();
+		clts();
+#ifdef CONFIG_ML1OM
+		__math_state_restore();
+#else
+		restore_mask_regs();
+		stts();
+#endif
+		preempt_enable();
+	}
+#endif
 	return 0;
 }
 

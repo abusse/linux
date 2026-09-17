@@ -130,6 +130,19 @@ atomic_t init_deasserted;
  * Report back to the Boot Processor during boot time or to the caller processor
  * during CPU online.
  */
+#ifdef CONFIG_X86_EARLYMIC
+extern void disable_icache_snoop(void);
+extern void mic_construct_default_ioirq_mptable(int mpc_default_type) __init;
+extern void mic_smpt_init(void) __init;
+#endif
+#ifdef CONFIG_PARALLEL_AP_BOOT
+extern unsigned long smp_stack_pointer_map[];
+extern unsigned long smp_gs_map[];
+extern unsigned long ap_code;
+extern unsigned long apic_base_addr;
+static DEFINE_RAW_SPINLOCK(cpu_data_lock);
+#endif
+
 static void __cpuinit smp_callin(void)
 {
 	int cpuid, phys_id;
@@ -144,8 +157,10 @@ static void __cpuinit smp_callin(void)
 	 * Since CPU0 is not wakened up by INIT, it doesn't wait for the IPI.
 	 */
 	cpuid = smp_processor_id();
+#ifndef CONFIG_PARALLEL_AP_BOOT
 	if (apic->wait_for_init_deassert && cpuid != 0)
 		apic->wait_for_init_deassert(&init_deasserted);
+#endif
 
 	/*
 	 * (This works even if the APIC is not enabled.)
@@ -217,11 +232,18 @@ static void __cpuinit smp_callin(void)
 	cpu_data(cpuid).loops_per_jiffy = loops_per_jiffy;
 	pr_debug("Stack at about %p\n", &cpuid);
 
+#ifdef CONFIG_PARALLEL_AP_BOOT
+	raw_spin_lock(&cpu_data_lock);
+#endif
+
 	/*
 	 * This must be done before setting cpu_online_mask
 	 * or calling notify_cpu_starting.
 	 */
 	set_cpu_sibling_map(raw_smp_processor_id());
+#ifdef CONFIG_PARALLEL_AP_BOOT
+	raw_spin_unlock(&cpu_data_lock);
+#endif
 	wmb();
 
 	notify_cpu_starting(cpuid);
@@ -246,6 +268,9 @@ notrace static void __cpuinit start_secondary(void *unused)
 	 */
 	cpu_init();
 	x86_cpuinit.early_percpu_clock_init();
+#ifdef CONFIG_X86_EARLYMIC
+	disable_icache_snoop();		/* we are an AP */
+#endif
 	preempt_disable();
 	smp_callin();
 
@@ -262,7 +287,9 @@ notrace static void __cpuinit start_secondary(void *unused)
 	/*
 	 * Check TSC synchronization with the BP:
 	 */
+#ifndef CONFIG_PARALLEL_AP_BOOT
 	check_tsc_sync_target();
+#endif
 
 	/*
 	 * We need to hold vector_lock so there the set of online cpus
@@ -1070,6 +1097,325 @@ static void __init smp_cpu_index_default(void)
  * Prepare for SMP bootup.  The MP table or ACPI has been read
  * earlier.  Just do some sanity checking here and enable APIC mode.
  */
+#ifdef CONFIG_PARALLEL_AP_BOOT
+static int __cpuinit
+_pre_wakeup_aps_via_init_broadcast(void)
+{
+
+	unsigned long send_status;
+	/*
+	 * Turn INIT on target chip -- this is a broadcast to "all but self"
+	 */
+	/*
+	 * Send IPI
+	 */
+	apic_icr_write(APIC_INT_LEVELTRIG | APIC_INT_ASSERT | APIC_DM_INIT | APIC_DEST_ALLBUT, 0);
+
+	send_status = safe_apic_wait_icr_idle();
+
+#ifdef CONFIG_X86_MIC_EMULATION
+	mic_mdelay(10);
+#else
+	mdelay(10);
+#endif
+
+	/* Target chip -- INIT Deassert broadcast */
+	/* Send IPI */
+	apic_icr_write(APIC_INT_LEVELTRIG | APIC_DM_INIT | APIC_DEST_ALLBUT, 0);
+
+	send_status = safe_apic_wait_icr_idle();
+
+	mb();
+	atomic_set(&init_deasserted, 1);
+
+
+	return (send_status);
+}
+
+static int __cpuinit
+kick_secondary_cpu(int phys_apicid, unsigned long start_eip)
+{
+	unsigned long send_status, accept_status = 0;
+	int maxlvt, num_starts, j;
+
+	maxlvt = lapic_get_maxlvt();
+
+	/*
+	 * Be paranoid about clearing APIC errors.
+	 */
+	if (APIC_INTEGRATED(apic_version[phys_apicid])) {
+		if (maxlvt > 3)		/* Due to the Pentium erratum 3AP.  */
+			apic_write(APIC_ESR, 0);
+		apic_read(APIC_ESR);
+	}
+
+	/*
+	 * Should we send STARTUP IPIs ?
+	 *
+	 * Determine this based on the APIC version.
+	 * If we don't have an integrated APIC, don't send the STARTUP IPIs.
+	 */
+	if (APIC_INTEGRATED(apic_version[phys_apicid]))
+		num_starts = 2;
+	else
+		num_starts = 0;
+
+	/*
+	 * Paravirt / VMI wants a startup IPI hook here to set up the
+	 * target processor state.
+	 */
+	startup_ipi_hook(phys_apicid, (unsigned long) start_secondary,
+			 stack_start);
+
+	/*
+	 * Run STARTUP IPI loop.
+	 */
+	pr_debug("#startup loops: %d.\n", num_starts);
+
+	for (j = 1; j <= num_starts; j++) {
+		pr_debug("Sending STARTUP #%d.\n", j);
+		if (maxlvt > 3)		/* Due to the Pentium erratum 3AP.  */
+			apic_write(APIC_ESR, 0);
+		apic_read(APIC_ESR);
+		pr_debug("After apic_write.\n");
+
+		/*
+		 * STARTUP IPI
+		 */
+
+		/* Target chip */
+		/* Boot on the stack */
+		/* Kick the second */
+		apic_icr_write(APIC_DM_STARTUP | (start_eip >> 12),
+			       phys_apicid);
+
+		/*
+		 * Give the other CPU some time to accept the IPI.
+		 */
+#ifdef CONFIG_X86_MIC_EMULATION
+		mic_udelay(300);
+#else
+		udelay(300);
+#endif
+
+		send_status = safe_apic_wait_icr_idle();
+
+		/*
+		 * Give the other CPU some time to accept the IPI.
+		 */
+#ifdef CONFIG_X86_MIC_EMULATION
+		mic_udelay(200);
+#else
+		udelay(200);
+#endif
+		if (maxlvt > 3)		/* Due to the Pentium erratum 3AP.  */
+			apic_write(APIC_ESR, 0);
+		accept_status = (apic_read(APIC_ESR) & 0xEF);
+		if (send_status || accept_status)
+			break;
+	}
+
+	if (send_status)
+		printk(KERN_ERR "APIC never delivered???\n");
+	if (accept_status)
+		printk(KERN_ERR "APIC delivery error (%lx).\n", accept_status);
+
+	return (send_status | accept_status);
+}
+
+int __cpuinit do_check_cpu(int cpu)
+{
+	int timeout;
+	int boot_error = 0;
+#ifndef CONFIG_X86_EARLYMIC
+	unsigned long flags;
+#endif
+	int apicid = apic->cpu_present_to_apicid(cpu);
+
+	if (apicid == BAD_APICID || apicid == boot_cpu_physical_apicid ||
+		!physid_isset(apicid, phys_cpu_present_map)) {
+		printk(KERN_ERR "%s: bad cpu %d\n", __func__, cpu);
+		return -EINVAL;
+	}
+
+	/*
+	 * Wait 5s total for a response
+	 */
+	for (timeout = 0; timeout < 50000; timeout++) {
+		if (cpumask_test_cpu(cpu, cpu_callin_mask))
+			break;	/* It has booted */
+#ifdef CONFIG_X86_MIC_EMULATION
+		mic_udelay(100);
+#else
+		udelay(100);
+#endif
+		/*
+		 * Allow other tasks to run while we wait for the
+		 * AP to come online. This also gives a chance
+		 * for the MTRR work(triggered by the AP coming online)
+		 * to be completed in the stop machine context.
+		 */
+		schedule();
+	}
+
+	if (cpumask_test_cpu(cpu, cpu_callin_mask))
+		pr_debug("CPU%d: has booted.\n", cpu);
+	else {
+		boot_error = 1;
+		if (apic->inquire_remote_apic)
+			apic->inquire_remote_apic(apicid);
+	}
+
+	if (boot_error) {
+		/* Try to put things back the way they were before ... */
+		numa_remove_cpu(cpu); /* was set by numa_add_cpu */
+
+		/* was set by do_boot_cpu() */
+		cpumask_clear_cpu(cpu, cpu_callout_mask);
+
+		/* was set by cpu_init() */
+		cpumask_clear_cpu(cpu, cpu_initialized_mask);
+
+		set_cpu_present(cpu, false);
+		per_cpu(x86_cpu_to_apicid, cpu) = BAD_APICID;
+	}
+
+	/* checking the tsc_sync is problematic when the secondary processors 
+	 * are coming up in parallel. The current sync check process requires
+	 * the cpus call this one by one.
+	 */
+#ifndef CONFIG_X86_EARLYMIC
+	local_irq_save(flags);
+	check_tsc_sync_source(cpu);
+	local_irq_restore(flags);
+#endif
+
+	while (!cpu_online(cpu)) {
+		cpu_relax();
+		touch_nmi_watchdog();
+	}
+
+	return 0;
+}
+
+static int __cpuinit do_boot_cpu_parallel(int apicid, int cpu)
+{
+	unsigned long boot_error = 0;
+	unsigned long start_ip;
+	struct create_idle c_idle = {
+		.cpu	= cpu,
+		.done	= COMPLETION_INITIALIZER_ONSTACK(c_idle.done),
+	};
+
+	INIT_WORK_ONSTACK(&c_idle.work, do_fork_idle);
+	alternatives_smp_switch(1);
+	c_idle.idle = get_idle_for_cpu(cpu);
+	if (c_idle.idle) {
+		c_idle.idle->thread.sp = (unsigned long) (((struct pt_regs *)
+			(THREAD_SIZE +  task_stack_page(c_idle.idle))) - 1);
+		init_idle(c_idle.idle, cpu);
+		goto do_rest;
+	}
+	schedule_work(&c_idle.work);
+	wait_for_completion(&c_idle.done);
+	if (IS_ERR(c_idle.idle)) {
+		printk("failed fork for CPU %d\n", cpu);
+		destroy_work_on_stack(&c_idle.work);
+		return PTR_ERR(c_idle.idle);
+	}
+	set_idle_for_cpu(cpu, c_idle.idle);
+do_rest:
+	per_cpu(current_task, cpu) = c_idle.idle;
+	clear_tsk_thread_flag(c_idle.idle, TIF_FORK);
+	/* parallel boot: each AP finds its own stack/gs by apicid (see head_64.S) */
+	smp_gs_map[apicid] = per_cpu_offset(cpu);
+	per_cpu(kernel_stack, cpu) =
+		(unsigned long)task_stack_page(c_idle.idle) -
+		KERNEL_STACK_OFFSET + THREAD_SIZE;
+	early_gdt_descr.address = (unsigned long)get_cpu_gdt_table(cpu);
+	initial_code = (unsigned long)start_secondary;
+	smp_stack_pointer_map[apicid] = (unsigned long)c_idle.idle->thread.sp;
+	stack_start = smp_stack_pointer_map[apicid];
+	start_ip = trampoline_address();
+	announce_cpu(cpu, apicid);
+	atomic_set(&init_deasserted, 0);
+	if (get_uv_system_type() != UV_NON_UNIQUE_APIC) {
+		smpboot_setup_warm_reset_vector(start_ip);
+		if (APIC_INTEGRATED(apic_version[boot_cpu_physical_apicid])) {
+			apic_write(APIC_ESR, 0);
+			apic_read(APIC_ESR);
+		}
+	}
+	/* INIT was already broadcast to all APs by do_pre_wakeup_aps();
+	 * here we only send the per-CPU STARTUP IPI and do NOT wait for
+	 * callin (that is done later, in parallel, by do_check_cpu()). */
+	if (apic->wakeup_secondary_cpu)
+		boot_error = apic->wakeup_secondary_cpu(apicid, start_ip);
+	else
+		boot_error = kick_secondary_cpu(apicid, start_ip);
+	if (!boot_error)
+		cpumask_set_cpu(cpu, cpu_callout_mask);
+	if (boot_error) {
+		numa_remove_cpu(cpu);
+		cpumask_clear_cpu(cpu, cpu_callout_mask);
+		cpumask_clear_cpu(cpu, cpu_initialized_mask);
+		set_cpu_present(cpu, false);
+		per_cpu(x86_cpu_to_apicid, cpu) = BAD_APICID;
+	}
+	if (get_uv_system_type() != UV_NON_UNIQUE_APIC)
+		smpboot_restore_warm_reset_vector();
+	destroy_work_on_stack(&c_idle.work);
+	return boot_error;
+}
+
+int __cpuinit do_pre_wakeup_aps(void)
+{
+	return (_pre_wakeup_aps_via_init_broadcast());
+}
+
+int __cpuinit native_cpu_up_parallel(unsigned int cpu)
+{
+	int apicid = apic->cpu_present_to_apicid(cpu);
+	int err;
+
+	WARN_ON(irqs_disabled());
+
+	pr_debug("++++++++++++++++++++=_---CPU UP  %u\n", cpu);
+
+	if (apicid == BAD_APICID || apicid == boot_cpu_physical_apicid ||
+	    !physid_isset(apicid, phys_cpu_present_map)) {
+		printk(KERN_ERR "%s: bad cpu %d\n", __func__, cpu);
+		return -EINVAL;
+	}
+
+	/*
+	 * Already booted CPU?
+	 */
+	if (cpumask_test_cpu(cpu, cpu_callin_mask)) {
+		pr_debug("do_boot_cpu %d Already started\n", cpu);
+		return -ENOSYS;
+	}
+
+	/*
+	 * Save current MTRR state in case it was changed since early boot
+	 * (e.g. by the ACPI SMI) to initialize new CPUs with MTRRs in sync:
+	 */
+	mtrr_save_state();
+
+	per_cpu(cpu_state, cpu) = CPU_UP_PREPARE;
+
+	err = do_boot_cpu_parallel(apicid, cpu);
+
+	if (err) {
+		pr_debug("do_boot_cpu failed %d\n", err);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+#endif /* CONFIG_PARALLEL_AP_BOOT */
+
 void __init native_smp_prepare_cpus(unsigned int max_cpus)
 {
 	unsigned int i;
@@ -1081,6 +1427,11 @@ void __init native_smp_prepare_cpus(unsigned int max_cpus)
 	 * Setup boot CPU information
 	 */
 	smp_store_boot_cpu_info(); /* Final full version of the data */
+#ifdef CONFIG_X86_EARLYMIC
+	disable_icache_snoop();		/* we are the BSP */
+	mic_construct_default_ioirq_mptable(0);	/* populate mp_irqs for the MIC IOAPIC pins */
+	mic_smpt_init();		/* MIC system memory page tables (host access) */
+#endif
 	cpumask_copy(cpu_callin_mask, cpumask_of(0));
 	mb();
 
@@ -1145,6 +1496,15 @@ void __init native_smp_prepare_cpus(unsigned int max_cpus)
 		uv_system_init();
 
 	set_mtrr_aps_delayed_init();
+
+#ifdef CONFIG_PARALLEL_AP_BOOT
+	if (do_pre_wakeup_aps())
+		printk("failed to broadcast INIT to APs\n");
+	/* BSP is up; bring secondary CPUs up in parallel. */
+	ap_code = 1;
+	apic_base_addr = APIC_BASE;
+	smp_ops.cpu_up = native_cpu_up_parallel;
+#endif
 out:
 	preempt_enable();
 }

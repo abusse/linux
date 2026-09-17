@@ -165,3 +165,29 @@ int safe_smp_processor_id(void)
 	return cpuid >= 0 ? cpuid : 0;
 }
 #endif
+
+#ifdef CONFIG_X86_EARLYMIC
+/*
+ * Physical 'all' / 'all-but-self' IPI via APIC shorthand. No APIC clustering
+ * on MIC and no CPU hotplug, so shorthand is safe and fast.
+ */
+void default_send_IPI_all_phys(int vector)
+{
+	unsigned long flags;
+
+	local_irq_save(flags);
+	__default_send_IPI_shortcut_safe(APIC_DEST_ALLINC, vector,
+					 APIC_DEST_PHYSICAL | APIC_INT_ASSERT);
+	local_irq_restore(flags);
+}
+
+void default_send_IPI_allbutself_phys(int vector)
+{
+	unsigned long flags;
+
+	local_irq_save(flags);
+	__default_send_IPI_shortcut_safe(APIC_DEST_ALLBUT, vector,
+					 APIC_DEST_PHYSICAL | APIC_INT_ASSERT);
+	local_irq_restore(flags);
+}
+#endif
