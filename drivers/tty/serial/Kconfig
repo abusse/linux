@@ -8,7 +8,6 @@ menu "Serial drivers"
 	depends on HAS_IOMEM && GENERIC_HARDIRQS
 
 source "drivers/tty/serial/8250/Kconfig"
-
 comment "Non-8250 serial port support"
 
 config SERIAL_AMBA_PL010
