@@ -534,8 +534,9 @@ END(irq_entries_start)
 	 */
 	movq	%rsp, %rdi
 	incl	PER_CPU_VAR(irq_count)
-	cmovzq	PER_CPU_VAR(irq_stack_ptr), %rsp
-	pushq	%rdi
+	jne	2f			/* k1om has no CMOV; branch instead of cmovz */
+	movq	PER_CPU_VAR(irq_stack_ptr), %rsp
+2:	pushq	%rdi
 	/* We entered an interrupt context - irqs are off: */
 	TRACE_IRQS_OFF
 
@@ -851,7 +852,10 @@ ENTRY(native_load_gs_index)
 	SWAPGS
 gs_change:
 	movl	%edi, %gs
-2:	mfence					/* workaround */
+2:
+#ifndef CONFIG_X86_EARLYMIC
+	mfence					/* workaround */
+#endif
 	SWAPGS
 	popfq
 	ret
@@ -872,8 +876,9 @@ ENTRY(do_softirq_own_stack)
 	pushq	%rbp
 	mov	%rsp, %rbp
 	incl	PER_CPU_VAR(irq_count)
-	cmove	PER_CPU_VAR(irq_stack_ptr), %rsp
-	push	%rbp				/* frame pointer backlink */
+	jne	1f			/* k1om has no CMOV */
+	movq	PER_CPU_VAR(irq_stack_ptr), %rsp
+1:	push	%rbp				/* frame pointer backlink */
 	call	__do_softirq
 	leaveq
 	decl	PER_CPU_VAR(irq_count)

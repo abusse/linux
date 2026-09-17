@@ -37,6 +37,7 @@ modules.builtin
 Module.symvers
 *.dwo
 *.su
+vmlinux*
 
 #
 # Top-level generic files
@@ -50,6 +51,9 @@ Module.symvers
 /vmlinuz
 /System.map
 /Module.markers
+/Module.symvers
+scif
+tmp
 
 #
 # Debian directory (make deb-pkg)

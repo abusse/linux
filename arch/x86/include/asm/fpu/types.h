@@ -122,6 +122,10 @@ enum xfeature {
 #define XFEATURE_MASK_Hi16_ZMM		(1 << XFEATURE_Hi16_ZMM)
 
 #define XFEATURE_MASK_FPSSE		(XFEATURE_MASK_FP | XFEATURE_MASK_SSE)
+#ifdef CONFIG_X86_EARLYMIC
+/* KNC: the VPU block takes the slot MPX uses elsewhere. */
+#define XFEATURE_MASK_ZMM		(1 << XFEATURE_BNDREGS)
+#endif
 #define XFEATURE_MASK_AVX512		(XFEATURE_MASK_OPMASK \
 					 | XFEATURE_MASK_ZMM_Hi256 \
 					 | XFEATURE_MASK_Hi16_ZMM)
@@ -218,6 +222,16 @@ struct xstate_header {
 	u64				reserved[6];
 } __attribute__((packed));
 
+#ifdef CONFIG_X86_EARLYMIC
+/* KNC VPU: 32 x 512-bit vector registers, 8 mask registers, VXCSR. */
+struct vpustate_struct {
+	u32				vector_space[512];
+	u16				k[8];
+	u32				vxcsr;
+	u32				reserved2[27];
+};
+#endif
+
 /*
  * This is our most modern FPU state format, as saved by the XSAVE
  * and restored by the XRSTOR instructions.
@@ -230,6 +244,9 @@ struct xstate_header {
 struct xregs_state {
 	struct fxregs_state		i387;
 	struct xstate_header		header;
+#ifdef CONFIG_X86_EARLYMIC
+	struct vpustate_struct		vpu;
+#endif
 	u8				extended_state_area[0];
 } __attribute__ ((packed, aligned (64)));
 

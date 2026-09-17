@@ -18,6 +18,14 @@
 #define XSAVE_YMM_SIZE	    256
 #define XSAVE_YMM_OFFSET    (XSAVE_HDR_SIZE + XSAVE_HDR_OFFSET)
 
+#ifdef CONFIG_X86_EARLYMIC
+/* KNC: FP/SSE/YMM plus the VPU block; no MPX -> no eager-only state. */
+#define XFEATURE_MASK_LAZY	(XFEATURE_MASK_FP | \
+				 XFEATURE_MASK_SSE | \
+				 XFEATURE_MASK_YMM | \
+				 XFEATURE_MASK_ZMM)
+#define XFEATURE_MASK_EAGER	0
+#else
 /* Supported features which support lazy state saving */
 #define XFEATURE_MASK_LAZY	(XFEATURE_MASK_FP | \
 				 XFEATURE_MASK_SSE | \
@@ -28,6 +36,7 @@
 
 /* Supported features which require eager state saving */
 #define XFEATURE_MASK_EAGER	(XFEATURE_MASK_BNDREGS | XFEATURE_MASK_BNDCSR)
+#endif
 
 /* All currently supported features */
 #define XCNTXT_MASK	(XFEATURE_MASK_LAZY | XFEATURE_MASK_EAGER)

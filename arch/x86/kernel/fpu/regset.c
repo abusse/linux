@@ -79,8 +79,10 @@ int xstateregs_get(struct task_struct *target, const struct user_regset *regset,
 	struct xregs_state *xsave;
 	int ret;
 
+#ifndef CONFIG_X86_EARLYMIC
 	if (!cpu_has_xsave)
 		return -ENODEV;
+#endif
 
 	fpu__activate_fpstate_read(fpu);
 
@@ -108,8 +110,10 @@ int xstateregs_set(struct task_struct *target, const struct user_regset *regset,
 	struct xregs_state *xsave;
 	int ret;
 
+#ifndef CONFIG_X86_EARLYMIC
 	if (!cpu_has_xsave)
 		return -ENODEV;
+#endif
 
 	fpu__activate_fpstate_write(fpu);
 

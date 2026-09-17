@@ -25,6 +25,8 @@
 #include <linux/sched.h>
 #include <linux/gfp.h>
 #include <asm/mce.h>
+
+extern atomic_t mca_inject;
 #include <asm/apic.h>
 #include <asm/nmi.h>
 

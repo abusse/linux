@@ -18,6 +18,11 @@
 #define mb() alternative("lock; addl $0,0(%%esp)", "mfence", X86_FEATURE_XMM2)
 #define rmb() alternative("lock; addl $0,0(%%esp)", "lfence", X86_FEATURE_XMM2)
 #define wmb() alternative("lock; addl $0,0(%%esp)", "sfence", X86_FEATURE_XMM)
+#elif defined(CONFIG_X86_EARLYMIC)
+/* k1om lacks usable mfence/lfence/sfence; serialize via a locked op. */
+#define mb() 	asm volatile("lock; addl $0,0(%%rsp)":::"memory")
+#define rmb()	asm volatile("lock; addl $0,0(%%rsp)":::"memory")
+#define wmb()	asm volatile("lock; addl $0,0(%%rsp)":::"memory")
 #else
 #define mb() 	asm volatile("mfence":::"memory")
 #define rmb()	asm volatile("lfence":::"memory")
