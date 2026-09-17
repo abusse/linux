@@ -789,7 +789,11 @@ SYM_FUNC_START(asm_load_gs_index)
 .Lgs_change:
 	ANNOTATE_NOENDBR // error_entry
 	movl	%edi, %gs
+#ifdef CONFIG_X86_EARLYMIC
+2:
+#else
 2:	ALTERNATIVE "", "mfence", X86_BUG_SWAPGS_FENCE
+#endif
 	swapgs
 	FRAME_END
 	RET

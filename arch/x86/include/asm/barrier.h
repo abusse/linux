@@ -18,6 +18,11 @@
 				       X86_FEATURE_XMM2) ::: "memory", "cc")
 #define wmb() asm volatile(ALTERNATIVE("lock; addl $0,-4(%%esp)", "sfence", \
 				       X86_FEATURE_XMM2) ::: "memory", "cc")
+#elif defined(CONFIG_X86_EARLYMIC)
+/* k1om lacks usable mfence/lfence/sfence; serialize via a locked op. */
+#define mb() 	asm volatile("lock; addl $0,0(%%rsp)":::"memory")
+#define rmb()	asm volatile("lock; addl $0,0(%%rsp)":::"memory")
+#define wmb()	asm volatile("lock; addl $0,0(%%rsp)":::"memory")
 #else
 #define __mb()	asm volatile("mfence":::"memory")
 #define __rmb()	asm volatile("lfence":::"memory")
@@ -49,7 +54,12 @@ static inline unsigned long array_index_mask_nospec(unsigned long index,
 #define array_index_mask_nospec array_index_mask_nospec
 
 /* Prevent speculative execution past this barrier. */
+#ifdef CONFIG_X86_EARLYMIC
+/* in-order core, and the assembler has no lfence */
+#define barrier_nospec() barrier()
+#else
 #define barrier_nospec() alternative("", "lfence", X86_FEATURE_LFENCE_RDTSC)
+#endif
 
 #define __dma_rmb()	barrier()
 #define __dma_wmb()	barrier()

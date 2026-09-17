@@ -23,7 +23,7 @@ static unsigned long perf_nmi_window;
 /* PMC Enable and Overflow bits for PerfCntrGlobal* registers */
 static u64 amd_pmu_global_cntr_mask __read_mostly;
 
-static __initconst const u64 amd_hw_cache_event_ids
+static const u64 amd_hw_cache_event_ids
 				[PERF_COUNT_HW_CACHE_MAX]
 				[PERF_COUNT_HW_CACHE_OP_MAX]
 				[PERF_COUNT_HW_CACHE_RESULT_MAX] =

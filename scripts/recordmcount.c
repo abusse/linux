@@ -563,6 +563,8 @@ static int do_file(char const *const fname)
 	case EM_S390:	/* reltype: e_class    */ break;
 	case EM_SH:	reltype = R_SH_DIR32; gpfx = 0; break;
 	case EM_SPARCV9: reltype = R_SPARC_64; break;
+	case 181: /* EM_K1OM (Knights Corner) */
+	case 180: /* EM_L1OM (Larrabee) */
 	case EM_X86_64:
 		make_nop = make_nop_x86;
 		ideal_nop = ideal_nop5_x86_64;

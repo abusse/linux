@@ -350,8 +350,10 @@ do {									\
 	__ret;								\
 })
 
+#ifndef CONFIG_MK1OM	/* k1om lacks CMPXCHG16B; use generic percpu fallback */
 #define raw_cpu_cmpxchg_double_8	percpu_cmpxchg16b_double
 #define this_cpu_cmpxchg_double_8	percpu_cmpxchg16b_double
+#endif
 
 #endif
 

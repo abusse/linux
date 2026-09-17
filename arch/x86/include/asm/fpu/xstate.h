@@ -26,6 +26,13 @@
 
 #define XSAVE_ALIGNMENT     64
 
+#ifdef CONFIG_X86_EARLYMIC
+/* KNC: FP/SSE/YMM plus the VPU block (rides in the MPX slot) */
+#define XFEATURE_MASK_USER_SUPPORTED (XFEATURE_MASK_FP | \
+				      XFEATURE_MASK_SSE | \
+				      XFEATURE_MASK_YMM | \
+				      XFEATURE_MASK_ZMM)
+#else
 /* All currently supported user features */
 #define XFEATURE_MASK_USER_SUPPORTED (XFEATURE_MASK_FP | \
 				      XFEATURE_MASK_SSE | \
@@ -37,6 +44,7 @@
 				      XFEATURE_MASK_BNDREGS | \
 				      XFEATURE_MASK_BNDCSR | \
 				      XFEATURE_MASK_XTILE)
+#endif
 
 /*
  * Features which are restored when returning to user space.

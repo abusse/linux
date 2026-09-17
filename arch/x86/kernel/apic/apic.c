@@ -1,4 +1,28 @@
 // SPDX-License-Identifier: GPL-2.0-only
+/* * Copyright (c) Intel Corporation (2011).
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
+
 /*
  *	Local APIC handling, local APIC timers
  *
@@ -35,6 +59,7 @@
 #include <linux/dmi.h>
 #include <linux/smp.h>
 #include <linux/mm.h>
+#include <linux/clocksource.h>
 
 #include <asm/trace/irq_vectors.h>
 #include <asm/irq_remapping.h>
@@ -546,7 +571,10 @@ static void lapic_timer_broadcast(const struct cpumask *mask)
 static struct clock_event_device lapic_clockevent = {
 	.name				= "lapic",
 	.features			= CLOCK_EVT_FEAT_PERIODIC |
-					  CLOCK_EVT_FEAT_ONESHOT | CLOCK_EVT_FEAT_C3STOP
+					  CLOCK_EVT_FEAT_ONESHOT
+#ifndef CONFIG_X86_EARLYMIC
+					  | CLOCK_EVT_FEAT_C3STOP
+#endif
 					  | CLOCK_EVT_FEAT_DUMMY,
 	.shift				= 32,
 	.set_state_shutdown		= lapic_timer_shutdown,
@@ -629,7 +657,6 @@ static void setup_APIC_timer(void)
 		/* Make LAPIC timer preferable over percpu HPET */
 		lapic_clockevent.rating = 150;
 	}
-
 	memcpy(levt, &lapic_clockevent, sizeof(*levt));
 	levt->cpumask = cpumask_of(smp_processor_id());
 
@@ -697,6 +724,41 @@ static __initdata long lapic_cal_t1, lapic_cal_t2;
 static __initdata unsigned long long lapic_cal_tsc1, lapic_cal_tsc2;
 static __initdata unsigned long lapic_cal_pm1, lapic_cal_pm2;
 static __initdata unsigned long lapic_cal_j1, lapic_cal_j2;
+
+#ifdef CONFIG_X86_EARLYMIC
+/*
+ * This is based on the assumption that lowest possible core frequency
+ * is 600MHz and the highest is 1.6GHz. We need two delays since the
+ * delay instruction is limited to 1023 cycles.
+ */
+const int delay_us_cycles = 500;
+int delay_us_cycles_extra = 0;
+
+static inline void delay_us(void)
+{
+#ifdef CONFIG_X86_MIC_EMULATION
+	/* at ~200KHz, 1 cycle is already more than 1us */
+	asm volatile ("delay %0" :: "r" (1) : "memory");
+#else
+	asm volatile ("delay %0" :: "r" (delay_us_cycles) : "memory");
+	asm volatile ("delay %0" :: "r" (delay_us_cycles_extra) : "memory");
+#endif
+}
+
+static inline void delay_ms(int cnt)
+{
+	int i, j;
+	for (i = 0; i < cnt; i++)
+		for (j = 0; j < 1000; j++)
+			delay_us();
+}
+
+void recalibrate_lapic(u_int div, u_int mult)
+{
+	uint64_t result = (uint64_t) lapic_clockevent.mult * (uint64_t) mult;
+	lapic_clockevent.mult =  (u32) (result / (uint64_t) div);
+}
+#endif
 
 /*
  * Temporary interrupt handler and polled calibration function.
@@ -1685,6 +1747,7 @@ static void setup_local_APIC(void)
 	 * strictly necessary in pure symmetric-IO mode, but sometimes
 	 * we delegate interrupts to the 8259A.
 	 */
+#ifndef CONFIG_X86_EARLYMIC
 	/*
 	 * TODO: set up through-local-APIC from through-I/O-APIC? --macro
 	 */
@@ -1696,6 +1759,7 @@ static void setup_local_APIC(void)
 		value = APIC_DM_EXTINT | APIC_LVT_MASKED;
 		apic_printk(APIC_VERBOSE, "masked ExtINT on CPU#%d\n", cpu);
 	}
+#endif
 	apic_write(APIC_LVT0, value);
 
 	/*
