@@ -280,7 +280,7 @@ intel_i2c_quirk_xfer(struct drm_i915_private *dev_priv,
  * HSD # 4118169.
  */
 static inline void
-dummy_read_dbox_regs()
+dummy_read_dbox_regs(void)
 {
 	I915_GMBUS_READ(DBOX_ADAK_CTRL_REG);
 	I915_GMBUS_READ(DBOX_SW_FLAG_REG);
