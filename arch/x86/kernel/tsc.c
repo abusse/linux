@@ -1104,7 +1104,6 @@ static struct clocksource clocksource_tsc_early = {
 				  CLOCK_SOURCE_SUSPEND_NONSTOP |
 #endif
 				  0,
-#ifdef CONFIG_X86_64
 	.archdata               = { .vclock_mode = VCLOCK_TSC },
 	.resume			= tsc_resume,
 	.mark_unstable		= tsc_cs_mark_unstable,
