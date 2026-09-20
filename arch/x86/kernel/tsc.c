@@ -987,7 +987,6 @@ static struct clocksource clocksource_tsc = {
 				  CLOCK_SOURCE_SUSPEND_NONSTOP |
 #endif
 				  0,
-#ifdef CONFIG_X86_64
 	.archdata               = { .vclock_mode = VCLOCK_TSC },
 };
 

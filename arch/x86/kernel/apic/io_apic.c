@@ -3185,14 +3185,13 @@ void arch_setup_sbox_irqs(unsigned int *irqs, int n)
 {
 	unsigned int irq;
 	int node = cpu_to_node(boot_cpu_physical_apicid);
-	unsigned int irq_want = MIC_NUM_IOAPIC_ENTRIES + 1;
 	int i;
 
 #ifdef CONFIG_INTR_REMAP
 	BUG_ON(intr_remapping_enabled);
 #endif
 	for (i = 0; i < n; i++) {
-		irq = create_irq_nr(irq_want, node);
+		irq = irq_alloc_hwirq(node);
 		BUG_ON(0 == irq);
 		setup_sbox_irq(irq, i);
 		irqs[i] = irq;
