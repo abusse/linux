@@ -979,7 +979,15 @@ static struct clocksource clocksource_tsc = {
 	.read                   = read_tsc,
 	.mask                   = CLOCKSOURCE_MASK(64),
 	.flags                  = CLOCK_SOURCE_IS_CONTINUOUS |
-				  CLOCK_SOURCE_MUST_VERIFY,
+				  CLOCK_SOURCE_MUST_VERIFY |
+#ifdef CONFIG_X86_EARLYMIC
+				  /* TSC keeps running through PC3 on the card, so
+				   * timekeeping_resume() can recover the elapsed idle
+				   * time from the cycle delta (no CMOS RTC exists). */
+				  CLOCK_SOURCE_SUSPEND_NONSTOP |
+#endif
+				  0,
+#ifdef CONFIG_X86_64
 	.archdata               = { .vclock_mode = VCLOCK_TSC },
 };
 
