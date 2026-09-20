@@ -60,8 +60,11 @@
 #define XSAVE_YMM_OFFSET    (XSAVE_HDR_SIZE + XSAVE_HDR_OFFSET)
 
 #ifdef CONFIG_X86_EARLYMIC
-/* KNC: no MPX/BND; the 0x8 xstate slot is ZMM (high vector) state */
-#define XCNTXT_MASK	(XSTATE_FP | XSTATE_SSE | XSTATE_YMM | XSTATE_ZMM)
+/* KNC: FP/SSE/YMM plus the ZMM (high vector) slot; no MPX/BND, so no
+ * eager-only state. XSTATE_LAZY/EAGER still defined for the generic xsave.c. */
+#define XSTATE_LAZY	(XSTATE_FP | XSTATE_SSE | XSTATE_YMM | XSTATE_ZMM)
+#define XSTATE_EAGER	0
+#define XCNTXT_MASK	(XSTATE_LAZY | XSTATE_EAGER)
 #else
 /* Supported features which support lazy state saving */
 #define XSTATE_LAZY	(XSTATE_FP | XSTATE_SSE | XSTATE_YMM		      \
