@@ -131,6 +131,9 @@ extern void mce_unregister_decode_chain(struct notifier_block *nb);
 
 extern int mce_p5_enabled;
 
+/* KNC RAS: re-added (3.16 dropped it); used by intelmic.c crash path and micras */
+extern atomic_t mce_entry;
+
 #ifdef CONFIG_X86_MCE
 int mcheck_init(void);
 void mcheck_cpu_init(struct cpuinfo_x86 *c);

@@ -1316,17 +1316,14 @@ static int mic_cpu_init(struct cpufreq_policy *policy)
 	/* Adjust PROCHOT freq so it is not lower than Pn*/
 	if(prochotfrequency < policy->cpuinfo.min_freq)
 		prochotfrequency=policy->cpuinfo.min_freq;
-	cpufreq_frequency_table_get_attr(freq_data.freq_table, policy->cpu);
+	cpufreq_table_validate_and_show(policy, freq_data.freq_table);
 	printk("Returning from mic_cpu_init\n");
 	return 0;
 }
 
 static int mic_cpu_exit(struct cpufreq_policy *policy)
 {
-	unsigned int cpu = policy->cpu;
-
-	cpufreq_frequency_table_put_attr(cpu);
-
+	/* 3.16 removed cpufreq_frequency_table_put_attr(); nothing to undo. */
 	return 0;
 }
 
@@ -1400,7 +1397,7 @@ static int mic_cpufreq_target(struct cpufreq_policy *policy,
 processthermal:
 
 	freqs.cpu = policy->cpu;
-	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
+	cpufreq_freq_transition_begin(policy, &freqs);
 
 	spin_lock_irqsave(&mic_cpufreq_lock, flags);
 	if (!asynchevent && !thermalevent && (freqs.new <= maxcorefreq)) {
@@ -1440,13 +1437,13 @@ processthermal:
 		freqs.new = freqs.old;
 		freqs.old = tmp;
 		freqs.cpu = policy->cpu;
-		cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
-		cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+		cpufreq_freq_transition_begin(policy, &freqs);
+		cpufreq_freq_transition_end(policy, &freqs, 0);
 		dprintk("Rolling back freq change\n");
 		goto out;
 	}
 	freqs.cpu = policy->cpu;
-	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+	cpufreq_freq_transition_end(policy, &freqs, 0);
 
 	/* Check if we have had a asynch event meanwhile */
 	spin_lock_irqsave(&mic_cpufreq_lock, flags);
@@ -1573,8 +1570,8 @@ static int mic_cpufreq_blocking_notifier(struct notifier_block *nb, unsigned lon
 			freqs.cpu = POLICY_CPU;	
 			spin_unlock_irqrestore(&mic_cpufreq_lock, flags);
 			if (policy) {
-				cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
-				cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+				cpufreq_freq_transition_begin(policy, &freqs);
+				cpufreq_freq_transition_end(policy, &freqs, 0);
 			}
 			break;	
 		}
@@ -1593,8 +1590,8 @@ static int mic_cpufreq_blocking_notifier(struct notifier_block *nb, unsigned lon
 		smp_wmb();
 		spin_unlock_irqrestore(&mic_cpufreq_lock, flags);
 		if (policy) {
-			cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
-			cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+			cpufreq_freq_transition_begin(policy, &freqs);
+			cpufreq_freq_transition_end(policy, &freqs, 0);
 		}
 		break;
 	}
