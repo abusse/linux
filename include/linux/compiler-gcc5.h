@@ -45,6 +45,11 @@
 /* Mark a function definition as prohibited from being cloned. */
 #define __noclone	__attribute__((__noclone__))
 
+/* asm goto is automatically volatile (gcc-5 > 4.8.01) */
+#ifndef asm_volatile_goto
+#define asm_volatile_goto(x...)	do { asm goto(x); } while (0)
+#endif
+
 #endif
 #endif
 
