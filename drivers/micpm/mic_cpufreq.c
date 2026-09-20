@@ -1091,7 +1091,7 @@ static int mic_generate_freq_table(int device, struct mic_freqvid *seed)
 		unsigned int currfreq = (fbval * bclk) / ffval;
 		if (currfreq >= nextfreq) {
 			if (!skip) {
-				tempbuf[i].index = nextcode;
+				tempbuf[i].driver_data = nextcode;
 				tempbuf[i++].frequency = currfreq;	/* Frequencies in table are in kHz      */
 
 				if (currfreq <= tdpfreq)
@@ -1170,7 +1170,7 @@ static int mic_generate_freq_table(int device, struct mic_freqvid *seed)
 		for (i = 0;
 		     freq_data.freq_table[i].frequency != CPUFREQ_TABLE_END;
 		     i++) {
-			dprintk("%x %d	  %x \n", freq_data.freq_table[i].index,
+			dprintk("%x %d	  %x \n", freq_data.freq_table[i].driver_data,
 				freq_data.freq_table[i].frequency,
 				freq_data.mic_viddata[i].vid);
 		}
@@ -1219,7 +1219,7 @@ static int set_cur_freq(int index)
 {
 	if (freq_data.mdev.set_core_freq)
 		return (*freq_data.mdev.set_core_freq) (freq_data.
-							freq_table[index].index,
+							freq_table[index].driver_data,
 							freq_data.
 							mic_viddata[index].vid);
 	else
@@ -1405,7 +1405,7 @@ processthermal:
 	spin_lock_irqsave(&mic_cpufreq_lock, flags);
 	if (!asynchevent && !thermalevent && (freqs.new <= maxcorefreq)) {
 		dprintk("Setting freq code to %x\n",
-			freq_data.freq_table[newstate].index);
+			freq_data.freq_table[newstate].driver_data);
 		driverbusy = 1;
 		smp_wmb();
 		retval = set_cur_freq(newstate);
@@ -1616,7 +1616,6 @@ static struct cpufreq_driver mic_driver = {
 	.target = mic_cpufreq_target,
 	.get = get_cur_freq,
 	.attr = mic_attr,
-	.owner = THIS_MODULE,
 };
 
 /**
