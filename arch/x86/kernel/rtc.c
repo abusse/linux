@@ -107,7 +107,15 @@ int update_persistent_clock64(struct timespec64 now)
 /* not static: needed by APM */
 void read_persistent_clock64(struct timespec64 *ts)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* No persistent (CMOS) RTC on the card; reading the absent CMOS
+	 * yields a garbage timespec that trips the strict sleep-delta check
+	 * in timekeeping_resume() on PC3 exit. Report no persistent clock. */
+	ts->tv_sec = 0;
+	ts->tv_nsec = 0;
+#else
 	x86_platform.get_wallclock(ts);
+#endif
 }
 
 
