@@ -988,17 +988,11 @@ static struct notifier_block mic_cpuidle_scif_notifier_block = {
  */
 static void mic_safe_halt(void)
 {
-	current_thread_info()->status &= ~TS_POLLING;
-	/*
-	 * TS_POLLING-cleared state must be visible before we
-	 * test NEED_RESCHED:
-	 */
-	smp_mb();
-	if (!need_resched()) {
+	if (!current_clr_polling_and_test()) {
 		safe_halt();
 		local_irq_disable();
 	}
-	current_thread_info()->status |= TS_POLLING;
+	__current_set_polling();
 }
 
 /**
@@ -1223,19 +1217,13 @@ static int mic_idle_enter_cc6(struct cpuidle_device *dev,
 	if (!corec6_allowed(cpu)) {
 		return mic_idle_enter_c1(dev, drv, index);
 	}
-	current_thread_info()->status &= ~TS_POLLING;
-	/*
-	 * TS_POLLING-cleared state must be visible before we
-	 * test NEED_RESCHED:
-	 */
-	smp_mb();
-	if (!need_resched()) {
+	if (!current_clr_polling_and_test()) {
 		idle_count[cpu]++;
 		kt1 = ktime_get_real();
 		__mic_idle_enter_c6(dev, &mic_cpuidle_driver.states[index], 0);
 		idle_time = ktime_to_us(ktime_sub(ktime_get_real(), kt1));
 	}
-	current_thread_info()->status |= TS_POLLING;
+	__current_set_polling();
 	local_irq_enable();
 	return index;
 }
@@ -1258,9 +1246,8 @@ static int mic_idle_enter_pc3(struct cpuidle_device *dev,
 	if(!pkgstate_ready)
 		return mic_idle_enter_c1(dev, drv, index);
 	
-	current_thread_info()->status &= ~TS_POLLING;
-	smp_mb();
-	if (need_resched()) goto bail; 
+	if (current_clr_polling_and_test())
+		goto bail;
 	idle_count[cpu]++;
 	kt1 = ktime_get_real();
 	sched_clock_idle_sleep_event();
@@ -1387,7 +1374,7 @@ static int mic_idle_enter_pc3(struct cpuidle_device *dev,
 //		start_lapictimer();
 	idle_time = ktime_to_us(ktime_sub(ktime_get_real(), kt1));
 bail:
-	current_thread_info()->status |= TS_POLLING;
+	__current_set_polling();
 	local_irq_enable();
 	return index;
 }
