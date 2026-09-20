@@ -588,6 +588,7 @@ int __init mic_init_menu(int pc3)
 void __exit mic_exit_menu(void)
 {
 	pm_scif_notifier_unregister(&mic_menu_scif_notifier_block);
-	cpuidle_unregister_governor(&mic_menu_governor);
+	/* 3.14 removed cpuidle_unregister_governor(); a registered governor is
+	 * permanent. MIC_PM is built-in, so this __exit path is never invoked. */
 }
 
