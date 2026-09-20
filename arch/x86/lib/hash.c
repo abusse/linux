@@ -39,8 +39,15 @@
 
 static inline u32 crc32_u32(u32 crc, u32 val)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* k1om has no SSE4.2 crc32 instruction; this path is never selected
+	 * (setup_arch_fast_hash gates on cpu_has_xmm4_2, which KNC lacks), but
+	 * the mnemonic must still assemble. */
+	return crc ^ val;
+#else
 	asm ("crc32l %1,%0\n" : "+r" (crc) : "rm" (val));
 	return crc;
+#endif
 }
 
 static u32 intel_crc4_2_hash(const void *data, u32 len, u32 seed)
