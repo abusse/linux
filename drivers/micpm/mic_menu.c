@@ -249,10 +249,11 @@ unsigned int mic_menu_get_pc3_inactivity(void)
 
 static int get_loadavg(void)
 {
-	unsigned long this = this_cpu_load();
+	unsigned long loads[3];
 
-
-	return LOAD_INT(this) * 10 + LOAD_FRAC(this) / 10;
+	/* 3.18 removed this_cpu_load(); use the global load average. */
+	get_avenrun(loads, 0, 0);
+	return LOAD_INT(loads[0]) * 10 + LOAD_FRAC(loads[0]) / 10;
 }
 
 static inline int which_bucket(unsigned int duration)
