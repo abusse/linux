@@ -1178,6 +1178,14 @@ config SERIAL_SCCNXP_CONSOLE
 	help
 	  Support for console on SCCNXP serial ports.
 
+config SERIAL_8250_SC16IS7XX
+	bool "Console on 8250 _SC16IS7XX"
+	depends on I2C_PXA
+	default SERIAL_8250
+	help
+	  Support for running an 8250 console on an SC16IS7XX I2C UART
+	  (KNC serial console over the SBOX I2C bus).
+
 config SERIAL_SC16IS7XX
 	tristate "SC16IS7xx serial support"
 	depends on I2C
