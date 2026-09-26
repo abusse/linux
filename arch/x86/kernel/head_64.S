@@ -211,8 +211,10 @@ startup_64:
 	 */
 	leaq	(__end_init_task - 8)(%rip), %rsp
 
-	/* Sanitize CPU configuration */
+#ifndef CONFIG_X86_EARLYMIC
+	/* Sanitize CPU configuration (KNC: no SSE, no MISC_ENABLE MSR) */
 	call verify_cpu
+#endif
 
 	/*
 	 * Compute the delta between the address I am compiled to run at and the
@@ -321,8 +323,10 @@ ENTRY(secondary_startup_64)
 	 * after the boot processor executes this code.
 	 */
 
-	/* Sanitize CPU configuration */
+#ifndef CONFIG_X86_EARLYMIC
+	/* Sanitize CPU configuration (KNC: no SSE, no MISC_ENABLE MSR) */
 	call verify_cpu
+#endif
 
 	movq	$(init_level4_pgt - __START_KERNEL_map), %rax
 1:
