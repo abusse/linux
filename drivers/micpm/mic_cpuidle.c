@@ -338,7 +338,7 @@ static struct mic_cpuidle_states mic_cpuidle_data[MAX_KNC_CSTATES] = {
 static void fix_processor_context(void)
 {
 	int cpu = smp_processor_id();
-	struct tss_struct *t = &per_cpu(init_tss, cpu);
+	struct tss_struct *t = &per_cpu(cpu_tss, cpu);
 
 	set_tss_desc(cpu, t);	/*
 				 * This just modifies memory; should not be
@@ -385,7 +385,7 @@ static void mic_save_processor_state(int apicid)
 	ctxt->cr0 = read_cr0();
 	ctxt->cr2 = read_cr2();
 	ctxt->cr3 = read_cr3();
-	ctxt->cr4 = read_cr4();
+	ctxt->cr4 = __read_cr4();
 	ctxt->cr8 = read_cr8();
 	/*
 	 * MCA related per-CPU MSRs
@@ -867,7 +867,7 @@ static inline int __init_pc35wakeup_intr(void)
 	int ret;
 	
 	if ((ret = request_irq(get_sbox_irq(PC35_WAKEUP_INT_IDX),
-		mic_pc35wakeup_isr, IRQF_DISABLED, 
+		mic_pc35wakeup_isr, 0, 
 		"PC35_Wakeup", NULL))) {
 		printk("Failed to setup PC35 wakeup intr, ret value = %d\n",ret);
 		return 0;
@@ -1401,16 +1401,12 @@ static int mic_setup_driver_states(void)
 		state->flags = 0;
 		switch (k) {
 		case MIC_STATE_C1:
-			state->flags =
-			    CPUIDLE_FLAG_TIME_VALID;
 			state->enter = mic_idle_enter_c1;
 			mic_cpuidle_driver.safe_state_index = i;
 			break;
 		case MIC_STATE_C6:
 			if (!mic_cc6_on)
 				continue;
-			state->flags =
-			    CPUIDLE_FLAG_TIME_VALID;
 			state->enter = mic_idle_enter_cc6;
 			break;
 
@@ -1418,7 +1414,7 @@ static int mic_setup_driver_states(void)
 			if (!mic_pc3_on)
 				continue;
 			state->flags =
-			    CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_PKGSTATE;
+			    CPUIDLE_FLAG_PKGSTATE;
 			state->enter = mic_idle_enter_pc3;
 			break;
 		}

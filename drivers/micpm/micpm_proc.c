@@ -140,9 +140,9 @@ static int pc6stats_show(struct seq_file *m, void *v)
 	
 	seq_printf(m,"\n\nPackage C6 stats\n");
 	seq_printf(m,"<pc6 entry count> <pc6 residency(us)> <pc3readmask>\n");
-	seq_printf(m,"	%d	%d	%lu       ",pc6_entry_count,
-		pc6_entry_count ? pc6_ticks/pc6_entry_count:0);	
-	seq_cpumask(m,&pc3readymask);
+	seq_printf(m,"	%u	%lu       ",pc6_entry_count,
+		pc6_entry_count ? pc6_ticks/pc6_entry_count:0);
+	seq_printf(m, "%*pb", cpumask_pr_args(&pc3readymask));
 	seq_printf(m,"\n\n");
 	#ifdef PC3_POLICY_DEBUG
 	seq_printf(m,"Per-cpu activity\n");
