@@ -36,6 +36,7 @@
 #include <linux/sched.h>
 #include <linux/stringify.h>
 #include <asm/processor.h>
+#include <asm/asm.h>
 #include <asm/fpu/types.h>
 #include <asm/sigcontext.h>
 #include <asm/user.h>
@@ -99,18 +100,12 @@
 #define CHK_VSTORED_DISP32_EAX(v, disp32)	\
 	"1: "					\
 	VSTORED_DISP32_EAX(v, disp32)		\
-	".section __ex_table,\"a\"\n"		\
-	"   .align 8\n"				\
-	"   .quad  1b,3f\n"			\
-	".previous\n"
+	_ASM_EXTABLE(1b, 3f)
 
 #define CHK_VLOADD_DISP32_EAX(v, disp32)	\
 	"1: "					\
 	VLOADD_DISP32_EAX(v, disp32)		\
-	".section __ex_table,\"a\"\n"		\
-	"   .align 8\n"				\
-	"   .quad  1b,3f\n"			\
-	".previous\n"
+	_ASM_EXTABLE(1b, 3f)
 
 #define VKSTORE_DISP32_EAX(k, disp32)		\
 	VKMOV_TO_EBX(k)				\
@@ -123,34 +118,22 @@
 #define CHK_VKSTORE_DISP32_EAX(k, disp32)	\
 	VKMOV_TO_EBX(k)				\
 	"1: movw %%bx, " #disp32 "(%%rax)\n"	\
-	".section __ex_table,\"a\"\n"		\
-	"   .align 8\n"				\
-	"   .quad  1b,3f\n"			\
-	".previous\n"
+	_ASM_EXTABLE(1b, 3f)
 
 #define CHK_VKLOAD_DISP32_EAX(k, disp32)	\
 	"1: movw " #disp32 "(%%rax), %%bx\n"	\
 	VKMOV_FROM_EBX(k)			\
-	".section __ex_table,\"a\"\n"		\
-	"   .align 8\n"				\
-	"   .quad  1b,3f\n"			\
-	".previous\n"
+	_ASM_EXTABLE(1b, 3f)
 
 #define CHK_STVXCSR_DISP32_EAX(disp32)		\
 	"1: "					\
 	STVXCSR_DISP32_EAX(disp32)		\
-	".section __ex_table,\"a\"\n"		\
-	"   .align 8\n"				\
-	"   .quad  1b,3f\n"			\
-	".previous\n"
+	_ASM_EXTABLE(1b, 3f)
 
 #define CHK_LDVXCSR_DISP32_EAX(disp32)		\
 	"1: "					\
 	LDVXCSR_DISP32_EAX(disp32)		\
-	".section __ex_table,\"a\"\n"		\
-	"   .align 8\n"				\
-	"   .quad  1b,3f\n"			\
-	".previous\n"
+	_ASM_EXTABLE(1b, 3f)
 
 
 static inline int __mic_restore_mask_regs(struct vpustate_struct *vpustate)
