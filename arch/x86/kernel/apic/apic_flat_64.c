@@ -150,11 +150,6 @@ static struct apic apic_flat __ro_after_init = {
 
 	.get_apic_id			= flat_get_apic_id,
 	.set_apic_id			= set_apic_id,
-#ifdef CONFIG_X86_EARLYMIC
-	.apic_id_mask			= 0x1FFu << 23,
-#else
-	.apic_id_mask			= 0xFFu << 24,
-#endif
 
 	.calc_dest_apicid		= apic_flat_calc_apicid,
 
@@ -246,11 +241,6 @@ static struct apic apic_physflat __ro_after_init = {
 
 	.get_apic_id			= flat_get_apic_id,
 	.set_apic_id			= set_apic_id,
-#ifdef CONFIG_X86_EARLYMIC
-	.apic_id_mask			= 0x1FFu << 23,
-#else
-	.apic_id_mask			= 0xFFu << 24,
-#endif
 
 	.calc_dest_apicid		= apic_default_calc_apicid,
 
