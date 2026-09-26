@@ -25,6 +25,8 @@
 #include <linux/serial_reg.h>
 #include <linux/moduleparam.h>
 #include <linux/delay.h>
+#include <linux/hardirq.h>
+#include <linux/rtmutex.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/console.h>
@@ -61,43 +63,72 @@ static char *test_regs_rd[] = {
 #endif
 
 /*
- * The 8250 core calls these with the port spinlock held (IRQs off), so the
- * i2c core only trylocks the adapter and returns -EAGAIN whenever another
- * context owns it. Dropping such an access silently corrupts 8250 state
- * (e.g. a lost IER write stalls TX for good), so retry for a bounded time:
- * a PIO transfer on another CPU finishes in a few hundred microseconds.
- * The bound keeps a same-CPU holder from deadlocking us.
+ * The 8250 core calls these with the port spinlock held (IRQs off) and,
+ * for console output, from any context. i2c_transfer() then only
+ * rt_mutex_trylock()s the adapter, which is forbidden (WARN) in hard/soft
+ * irq context and fails whenever another context owns the bus - and a
+ * dropped access silently corrupts 8250 state (a lost IER write stalls TX
+ * for good). So drive the adapter's master_xfer() directly under a private
+ * spinlock (all sc16is transfers serialize on it; the KNC i2c-pxa transfer
+ * is polled and safe in atomic context) and take the i2c core lock on top
+ * of it only where that is allowed, with a bounded wait, to keep other
+ * core users (i2c-dev) off the bus meanwhile.
  */
 #define SC16IS_RETRIES	250	/* x 20 us = 5 ms */
-
+static DEFINE_SPINLOCK(sc16is_lock);
 static int sc16is_retries, sc16is_rd_fail, sc16is_wr_fail;
-static int sc16is_rd_timeout, sc16is_wr_timeout;
+static int sc16is_unlocked, sc16is_timeout;
 module_param_named(retries, sc16is_retries, int, 0444);
 module_param_named(rd_fail, sc16is_rd_fail, int, 0444);
 module_param_named(wr_fail, sc16is_wr_fail, int, 0444);
-module_param_named(rd_timeout, sc16is_rd_timeout, int, 0444);
-module_param_named(wr_timeout, sc16is_wr_timeout, int, 0444);
+module_param_named(unlocked, sc16is_unlocked, int, 0444);
+module_param_named(timeout, sc16is_timeout, int, 0444);
+
+static int sc16is_xfer(struct i2c_client *client, struct i2c_msg *msgs, int num)
+{
+	struct i2c_adapter *adap = client->adapter;
+	bool core_lock = !(in_irq() || in_nmi() || in_serving_softirq());
+	int tries = SC16IS_RETRIES;
+	unsigned long flags;
+	int locked = 0, ret;
+
+	if (core_lock) {
+		while (!(locked = rt_mutex_trylock(&adap->bus_lock)) && tries--) {
+			sc16is_retries++;
+			udelay(20);
+		}
+		if (!locked)
+			sc16is_timeout++;
+	} else {
+		sc16is_unlocked++;
+	}
+
+	spin_lock_irqsave(&sc16is_lock, flags);
+	ret = adap->algo->master_xfer(adap, msgs, num);
+	spin_unlock_irqrestore(&sc16is_lock, flags);
+
+	if (locked)
+		rt_mutex_unlock(&adap->bus_lock);
+	if (ret < 0)
+		return ret;
+	return ret == num ? 0 : -EIO;
+}
 
 unsigned int sc16is_serial_in(struct uart_port *port, int offset)
 {
-	struct i2c_client *client = (struct i2c_client *)port->private_data;
-	int tries = SC16IS_RETRIES;
-	s32 value;
+	struct i2c_client *client = port->private_data;
+	u8 reg = (u8)offset << port->regshift, data;
+	struct i2c_msg msgs[2] = {
+		{ .addr = client->addr, .flags = client->flags & I2C_M_TEN,
+		  .len = 1, .buf = &reg },
+		{ .addr = client->addr,
+		  .flags = (client->flags & I2C_M_TEN) | I2C_M_RD,
+		  .len = 1, .buf = &data },
+	};
 
-	while ((value = i2c_smbus_read_byte_data(client,
-				(u8)offset << port->regshift)) == -EAGAIN &&
-	       tries--) {
-		sc16is_retries++;
-		udelay(20);
-	}
-
-	if (value >= 0)
-		return value & 0xFF;
-
-	if (value == -EAGAIN)
-		sc16is_rd_timeout++;
-	else
-		sc16is_rd_fail++;
+	if (!sc16is_xfer(client, msgs, 2))
+		return data;
+	sc16is_rd_fail++;
 	/* Harmless stand-ins instead of the errno's low byte. */
 	switch (offset) {
 	case UART_IIR:
@@ -111,20 +142,13 @@ unsigned int sc16is_serial_in(struct uart_port *port, int offset)
 
 void sc16is_serial_out(struct uart_port *port, int offset, int value)
 {
-	struct i2c_client *client = (struct i2c_client *)port->private_data;
-	int tries = SC16IS_RETRIES;
-	s32 val;
+	struct i2c_client *client = port->private_data;
+	u8 buf[2] = { (u8)offset << port->regshift, (u8)value };
+	struct i2c_msg msg = { .addr = client->addr,
+			       .flags = client->flags & I2C_M_TEN,
+			       .len = 2, .buf = buf };
 
-	while ((val = i2c_smbus_write_byte_data(client,
-				(u8)offset << port->regshift, (u8)value)) == -EAGAIN &&
-	       tries--) {
-		sc16is_retries++;
-		udelay(20);
-	}
-
-	if (val == -EAGAIN)
-		sc16is_wr_timeout++;
-	else if (val < 0)
+	if (sc16is_xfer(client, &msg, 1))
 		sc16is_wr_fail++;
 }
 #endif
