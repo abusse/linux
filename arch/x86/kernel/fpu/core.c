@@ -116,8 +116,8 @@ void save_fpregs_to_fpstate(struct fpu *fpu)
 {
 #ifdef CONFIG_X86_EARLYMIC
 	/* KNC: fxsave the x87 state, then store the vector/mask/VXCSR block. */
-	fxsave(&fpu->state.fxsave);
-	save_init_vpu(&fpu->state.xsave);
+	fxsave(&fpu->fpstate->regs.fxsave);
+	save_init_vpu(&fpu->fpstate->regs.xsave);
 	return;
 #endif
 	if (likely(use_xsave())) {
@@ -143,8 +143,8 @@ void restore_fpregs_from_fpstate(struct fpstate *fpstate, u64 mask)
 {
 #ifdef CONFIG_X86_EARLYMIC
 	/* no XRSTOR; the VPU data and mask registers ride along with the fx state */
-	fxrstor(&fpstate->fxsave);
-	WARN_ON_FPU(restore_vpu_checking(&fpstate->xsave.vpu));
+	fxrstor(&fpstate->regs.fxsave);
+	WARN_ON_FPU(restore_vpu_checking(&fpstate->regs.xsave.vpu));
 	return;
 #endif
 	/*
@@ -535,6 +535,9 @@ void fpstate_init_user(struct fpstate *fpstate)
 		fpstate_init_fxstate(fpstate);
 	else
 		fpstate_init_fstate(fpstate);
+#ifdef CONFIG_X86_EARLYMIC
+	fpstate->regs.xsave.vpu.vxcsr = VXCSR_DEFAULT;
+#endif
 }
 
 static void __fpstate_reset(struct fpstate *fpstate, u64 xfd)

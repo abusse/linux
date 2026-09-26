@@ -33,7 +33,7 @@
  */
 
 #include <linux/kernel.h>
-#include <asm/fpu/internal.h>
+#include <asm/fpu/api.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/idle.h>
 #include <asm/mmu_context.h>
@@ -454,12 +454,6 @@ void mic_restore_processor_state(struct cc6_saved_context *ctxt)
 	wrmsrl(MSR_FS_BASE, ctxt->fs_base);
 	wrmsrl(MSR_GS_BASE, ctxt->gs_base);
 	wrmsrl(MSR_KERNEL_GS_BASE, ctxt->gs_kernel_base);
-	/*
-	 * restore XCR0 for xsave capable cpu's.
-	 */
-	if (boot_cpu_has(X86_FEATURE_XSAVE))
-		xsetbv(XCR_XFEATURE_ENABLED_MASK, xfeatures_mask_all);
-
 	fix_processor_context();
 	set_mtrr_state();
 	pat_init();

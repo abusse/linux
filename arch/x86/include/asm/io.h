@@ -276,10 +276,6 @@ static inline void slow_down_io(void)
 #ifdef CONFIG_X86_EARLYMIC
 /* no port I/O on the card */
 #define BUILDIO(bwl, bw, type)						\
-static inline void out##bwl(type value, u16 port)			\
-{ }									\
-static inline type in##bwl(u16 port)					\
-{ return 0; }								\
 static inline void out##bwl##_p(type value, u16 port)			\
 { slow_down_io(); }							\
 static inline type in##bwl##_p(u16 port)				\
