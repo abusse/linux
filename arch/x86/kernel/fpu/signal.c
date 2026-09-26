@@ -158,6 +158,19 @@ static inline bool save_xstate_epilog(void __user *buf, int ia32_frame,
 
 static inline int copy_fpregs_to_sigframe(struct xregs_state __user *buf)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	int err;
+
+	/* KNC: fxsave plus the VPU block; zero the header like xsave would. */
+	err = __clear_user(&buf->header, sizeof(buf->header));
+	if (!err)
+		err = fxsave_to_user_sigframe(&buf->i387);
+	if (!err)
+		err = save_vpu_checking((struct vpustate_struct __force *)&buf->vpu);
+	if (unlikely(err) && __clear_user(buf, fpu_user_cfg.max_size))
+		err = -EFAULT;
+	return err;
+#endif
 	if (use_xsave())
 		return xsave_to_user_sigframe(buf);
 	if (use_fxsr())
@@ -251,6 +264,17 @@ retry:
 static int __restore_fpregs_from_user(void __user *buf, u64 ufeatures,
 				      u64 xrestore, bool fx_only)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	struct xregs_state __user *xbuf = buf;
+	int err = fxrstor_from_user_sigframe(buf);
+
+	if (err)
+		return err;
+	/* a frame without the xstate part (fx_only) carries no VPU block */
+	if (fx_only)
+		return restore_vpu_checking(&init_fpstate.xsave.vpu);
+	return restore_vpu_checking((struct vpustate_struct __force *)&xbuf->vpu);
+#endif
 	if (use_xsave()) {
 		u64 init_bv = ufeatures & ~xrestore;
 		int ret;

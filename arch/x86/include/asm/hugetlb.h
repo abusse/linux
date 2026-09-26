@@ -8,11 +8,10 @@
 #define hugepages_supported() boot_cpu_has(X86_FEATURE_PSE)
 
 #ifdef CONFIG_X86_EARLYMIC
-static inline pte_t arch_make_huge_pte(pte_t entry, struct vm_area_struct *vma,
-				       struct page *page, int writable)
+static inline pte_t arch_make_huge_pte(pte_t entry, unsigned int shift,
+				       vm_flags_t flags)
 {
-	size_t pagesize = huge_page_size(hstate_vma(vma));
-	if (pagesize == PMD_SIZE)
+	if (shift == PMD_SHIFT)
 		entry = pte_mkpmd(entry);
 	else
 		entry = pte_mk64k(entry);
