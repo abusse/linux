@@ -1,3 +1,4 @@
+#include <asm/asm.h>
 # mark_description "Intel(R) C Intel(R) 64 Compiler XE for applications running on Intel(R) MIC Architecture, Version 14.0.1.106";
 # mark_description " Build 20131008";
 # mark_description "-ffreestanding -mmic -S -mGLOB_default_function_attrs=knc_stream_store_controls=8 -unroll-aggressive -opt-pr";
@@ -200,44 +201,42 @@ copy_user_generic_vector:
          .previous
 
 
-        .section __ex_table, "a"
-        .quad 1b, 90b
-        .quad 2b, 90b
-        .quad 3b, 90b
-        .quad 4b, 90b
-        .quad 5b, 90b
-        .quad 6b, 90b
-        .quad 7b, 90b
-        .quad 8b, 90b
-        .quad 9b, 90b
-        .quad 10b, 90b
-        .quad 11b, 90b
-        .quad 12b, 90b
-        .quad 13b, 90b
-        .quad 14b, 120b
-        .quad 15b, 100b
-        .quad 16b, 100b
-        .quad 17b, 100b
-        .quad 18b, 100b
-        .quad 19b, 100b
-        .quad 20b, 100b
-        .quad 21b, 100b
-        .quad 22b, 100b
-        .quad 23b, 110b
-        .quad 24b, 110b
-        .quad 25b, 110b
-        .quad 26b, 110b
-        .quad 27b, 110b
-        .quad 28b, 110b
-        .quad 29b, 110b
-        .quad 30b, 110b
-        .quad 31b, 110b
-        .quad 32b, 110b
-        .quad 33b, 110b
-        .quad 34b, 110b
-        .quad 35b, 120b
-        .quad 36b, 120b
-				.previous
+	_ASM_EXTABLE(1b, 90b)
+	_ASM_EXTABLE(2b, 90b)
+	_ASM_EXTABLE(3b, 90b)
+	_ASM_EXTABLE(4b, 90b)
+	_ASM_EXTABLE(5b, 90b)
+	_ASM_EXTABLE(6b, 90b)
+	_ASM_EXTABLE(7b, 90b)
+	_ASM_EXTABLE(8b, 90b)
+	_ASM_EXTABLE(9b, 90b)
+	_ASM_EXTABLE(10b, 90b)
+	_ASM_EXTABLE(11b, 90b)
+	_ASM_EXTABLE(12b, 90b)
+	_ASM_EXTABLE(13b, 90b)
+	_ASM_EXTABLE(14b, 120b)
+	_ASM_EXTABLE(15b, 100b)
+	_ASM_EXTABLE(16b, 100b)
+	_ASM_EXTABLE(17b, 100b)
+	_ASM_EXTABLE(18b, 100b)
+	_ASM_EXTABLE(19b, 100b)
+	_ASM_EXTABLE(20b, 100b)
+	_ASM_EXTABLE(21b, 100b)
+	_ASM_EXTABLE(22b, 100b)
+	_ASM_EXTABLE(23b, 110b)
+	_ASM_EXTABLE(24b, 110b)
+	_ASM_EXTABLE(25b, 110b)
+	_ASM_EXTABLE(26b, 110b)
+	_ASM_EXTABLE(27b, 110b)
+	_ASM_EXTABLE(28b, 110b)
+	_ASM_EXTABLE(29b, 110b)
+	_ASM_EXTABLE(30b, 110b)
+	_ASM_EXTABLE(31b, 110b)
+	_ASM_EXTABLE(32b, 110b)
+	_ASM_EXTABLE(33b, 110b)
+	_ASM_EXTABLE(34b, 110b)
+	_ASM_EXTABLE(35b, 120b)
+	_ASM_EXTABLE(36b, 120b)
 
 # mark_end;
 	.type	copy_user_generic_vector,@function
