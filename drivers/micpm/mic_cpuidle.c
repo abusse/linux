@@ -33,7 +33,8 @@
  */
 
 #include <linux/kernel.h>
-#include <asm/xsave.h>
+#include <asm/fpu/internal.h>
+#include <asm/mmu_context.h>
 #include <asm/io_apic.h>
 /* Package-state (PC3/PC6) helpers ported to Linux 3.4: */
 extern int timekeeping_suspend(void);
@@ -65,7 +66,6 @@ static inline void restore_IO_APIC_setup(void *e) { restore_ioapic_entries(); }
 #include <asm/mtrr.h>
 #include <asm/page.h>
 #include <asm/mce.h>
-#include <asm/xcr.h>
 #include <asm/io_apic.h>
 #include <asm/suspend.h>
 #include <asm/debugreg.h>
@@ -186,7 +186,7 @@ static uint64_t apicicr[8]; /* There are 8 APICICR registers */
 static spinlock_t cc6lock[MAX_CORES];	/* Hold this lock for updating cc6status. */
 
 static atomic_t cc6cpucnt[MAX_CORES];	//Holds the count of cpus in CC6 in each core  
-static long cc6_cpumask[MAX_CORES];	//Holds the cc6 enable mask for each cpu in core   
+static atomic_t cc6_cpumask[MAX_CORES];	//Holds the cc6 enable mask for each cpu in core   
 unsigned long cc6_waketime[MAX_CPUS];	//Use this to calculate CC6 exit latency.
 
 static atomic_t pc3cpucnt = ATOMIC_INIT(0);	//
@@ -351,7 +351,7 @@ static void fix_processor_context(void)
 
 	syscall_init();		/* This sets MSR_*STAR and related */
 	load_TR_desc();		/* This does ltr */
-	load_LDT(&current->active_mm->context);	/* This does lldt */
+	load_mm_ldt(current->active_mm);	/* This does lldt */
 }
 
 static void mic_save_processor_state(int apicid)
@@ -439,7 +439,7 @@ void mic_restore_processor_state(struct cc6_saved_context *ctxt)
 	 * restore XCR0 for xsave capable cpu's.
 	 */
 	if (cpu_has_xsave)
-		xsetbv(XCR_XFEATURE_ENABLED_MASK, pcntxt_mask);
+		xsetbv(XCR_XFEATURE_ENABLED_MASK, xfeatures_mask);
 
 	fix_processor_context();
 	set_mtrr_state();
@@ -1036,7 +1036,7 @@ static int mic_switch_cc6_cpu(int core, int state)
 	spin_lock(&cc6lock[core]);
 	CC6STATUS_READ(lo, hi);
 	lo &= ~0x1f;
-	lo |= cc6_cpumask[core];
+	lo |= atomic_read(&cc6_cpumask[core]);
 	/* Turn on the core enable */
 	lo |= state;
 	CC6STATUS_WRITE(lo, hi);
@@ -1150,7 +1150,7 @@ static int __mic_idle_enter_c6(struct cpuidle_device *dev,
 	/* Save cpu state       */
 	rdtscll(entrytime);
 	mic_save_processor_state(apicid);
-	atomic_set_mask(1 << (thr + 1), &cc6_cpumask[core]);
+	atomic_or(1 << (thr + 1), &cc6_cpumask[core]);
 	tmp = atomic_inc_return(&cc6cpucnt[core]);
 	if (tmp == 4) {
 		retval = mic_switch_cc6_cpu(core, 1);
@@ -1175,7 +1175,7 @@ static int __mic_idle_enter_c6(struct cpuidle_device *dev,
 			}
 		cflush = 0;
 	} while (retval == MIC_STATE_C6);
-	atomic_clear_mask(1 << (thr + 1), &cc6_cpumask[core]);
+	atomic_andnot(1 << (thr + 1), &cc6_cpumask[core]);
 	tmp=atomic_dec_return(&cc6cpucnt[core]);
 	if(tmp == 3) 
 		mic_switch_cc6_cpu(core, 0);

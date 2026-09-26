@@ -46,7 +46,6 @@
 #include <asm/mtrr.h>
 #include <asm/page.h>
 #include <asm/mce.h>
-#include <asm/xcr.h>
 #include <asm/io_apic.h>
 #include <asm/suspend.h>
 #include <asm/debugreg.h>
