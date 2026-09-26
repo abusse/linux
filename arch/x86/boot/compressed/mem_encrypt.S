@@ -76,7 +76,11 @@ SYM_CODE_START_LOCAL(sev_es_req_cpuid)
 	orl     $0x00000004, %eax
 	movl    $MSR_AMD64_SEV_ES_GHCB, %ecx
 	wrmsr
+#ifdef CONFIG_X86_EARLYMIC
+	.byte 0xf3, 0x0f, 0x01, 0xd9	# rep; vmmcall (no such mnemonic in the k1om assembler; SEV never runs here)
+#else
 	rep; vmmcall		# VMGEXIT
+#endif
 	rdmsr
 
 	/* Check response */
@@ -177,7 +181,11 @@ SYM_CODE_START(startup32_vc_handler)
 	xorl    %edx, %edx
 	movl    $MSR_AMD64_SEV_ES_GHCB, %ecx
 	wrmsr
+#ifdef CONFIG_X86_EARLYMIC
+	.byte 0xf3, 0x0f, 0x01, 0xd9	# rep; vmmcall (no such mnemonic in the k1om assembler; SEV never runs here)
+#else
 	rep; vmmcall
+#endif
 
 	/* If request fails, go to hlt loop */
 	hlt

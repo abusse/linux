@@ -106,7 +106,11 @@ do {									\
  */
 static inline void weak_wrmsr_fence(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	mb();		/* no mfence/lfence on k1om (no TSC deadline / x2APIC either) */
+#else
 	asm volatile("mfence; lfence" : : : "memory");
+#endif
 }
 
 #endif /* _ASM_X86_BARRIER_H */
