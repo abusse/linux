@@ -256,13 +256,14 @@ start_thread_common(struct pt_regs *regs, unsigned long new_ip,
 	 */
 	fpu__activate_curr(&current->thread.fpu);
 	preempt_disable();
-	clts();
-#ifdef CONFIG_ML1OM
-	fpu__restore(&current->thread.fpu);
-#else
-	restore_mask_regs();
-	stts();
-#endif
+	if (fpregs_active()) {
+		/* eager FPU: registers live, CR0.TS clear - leave it that way */
+		restore_mask_regs();
+	} else {
+		clts();
+		restore_mask_regs();
+		stts();
+	}
 	preempt_enable();
 #endif
 	force_iret();

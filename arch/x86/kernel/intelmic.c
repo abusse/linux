@@ -497,6 +497,8 @@ void __init x86_mic_early_setup(void)
 	x86_init.irqs.pre_vector_init = x86_init_noop;
 
 	x86_platform.calibrate_tsc = intel_mic_calibrate_tsc;
+	/* 4.8+: tsc_init() also runs calibrate_cpu(); the PIT/PM-timer default hangs here. */
+	x86_platform.calibrate_cpu = intel_mic_calibrate_tsc;
 	x86_platform.get_wallclock = intel_mic_get_wallclock;
 	x86_platform.set_wallclock = intel_mic_set_wallclock;
 
