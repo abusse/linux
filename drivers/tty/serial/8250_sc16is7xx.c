@@ -181,7 +181,7 @@ static int sc16is7xx_probe(struct i2c_client *client,
 	port.serial_out = &sc16is_serial_out;
 	port.irq = 0;
 	port.uartclk = 1843200;
-	port.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST | UPF_NO_TXEN_TEST; /* TODO: need to study flags */
+	port.flags = UPF_BOOT_AUTOCONF | UPF_SKIP_TEST;  /* TODO: need to study flags */
 	port.fifosize = 64;
 	port.regshift = 3;
 	port.private_data = client;

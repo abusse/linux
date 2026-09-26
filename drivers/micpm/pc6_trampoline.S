@@ -104,8 +104,8 @@ centry:
 ENDPROC(pc6_exit_64)
 	.balign	PAGE_SIZE;
 ENTRY(pc6_trampoline_pgt)
-	.quad	level3_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
+	.quad	level3_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE_NOENC
 	.fill	510,8,0
-	.quad	level3_kernel_pgt - __START_KERNEL_map + _KERNPG_TABLE
+	.quad	level3_kernel_pgt - __START_KERNEL_map + _KERNPG_TABLE_NOENC
 ENTRY(pc6_trampoline_end)
 
