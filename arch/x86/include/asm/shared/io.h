@@ -4,6 +4,14 @@
 
 #include <linux/types.h>
 
+#ifdef CONFIG_X86_EARLYMIC
+/* no port I/O on the card */
+#define BUILDIO(bwl, bw, type)						\
+static inline void __out##bwl(type value, u16 port)			\
+{ }									\
+static inline type __in##bwl(u16 port)					\
+{ return 0; }
+#else
 #define BUILDIO(bwl, bw, type)						\
 static __always_inline void __out##bwl(type value, u16 port)		\
 {									\
@@ -18,6 +26,7 @@ static __always_inline type __in##bwl(u16 port)				\
 		     : "=a"(value) : "Nd"(port));			\
 	return value;							\
 }
+#endif
 
 BUILDIO(b, b, u8)
 BUILDIO(w, w, u16)

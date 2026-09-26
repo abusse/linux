@@ -198,6 +198,14 @@ static inline void os_xsave(struct fpstate *fpstate)
  *
  * Uses XRSTORS when XSAVES is used, XRSTOR otherwise.
  */
+#ifdef CONFIG_X86_EARLYMIC
+/* no XRSTOR; FP/SSE and the VPU block always travel together, the mask is ignored */
+static inline void os_xrstor(struct fpstate *fpstate, u64 mask)
+{
+	fxrstor(&fpstate->regs.fxsave);
+	WARN_ON_FPU(restore_vpu_checking(&fpstate->regs.xsave.vpu));
+}
+#else
 static inline void os_xrstor(struct fpstate *fpstate, u64 mask)
 {
 	u32 lmask = mask;
@@ -206,6 +214,7 @@ static inline void os_xrstor(struct fpstate *fpstate, u64 mask)
 	xfd_validate_state(fpstate, mask, true);
 	XSTATE_XRESTORE(&fpstate->regs.xsave, lmask, hmask);
 }
+#endif
 
 /* Restore of supervisor state. Does not require XFD */
 static inline void os_xrstor_supervisor(struct fpstate *fpstate)
@@ -307,6 +316,16 @@ static inline int xrstor_from_user_sigframe(struct xregs_state __user *buf, u64 
  * Restore xstate from kernel space xsave area, return an error code instead of
  * an exception.
  */
+#ifdef CONFIG_X86_EARLYMIC
+static inline int os_xrstor_safe(struct fpstate *fpstate, u64 mask)
+{
+	int err = fxrstor_safe(&fpstate->regs.fxsave);
+
+	if (!err)
+		err = restore_vpu_checking(&fpstate->regs.xsave.vpu);
+	return err;
+}
+#else
 static inline int os_xrstor_safe(struct fpstate *fpstate, u64 mask)
 {
 	struct xregs_state *xstate = &fpstate->regs.xsave;
@@ -324,6 +343,7 @@ static inline int os_xrstor_safe(struct fpstate *fpstate, u64 mask)
 
 	return err;
 }
+#endif
 
 
 #endif

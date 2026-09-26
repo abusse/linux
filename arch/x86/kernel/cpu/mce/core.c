@@ -111,7 +111,6 @@ EXPORT_SYMBOL_GPL(mca_print);
 int mce_disabled __read_mostly;		/* mirrors mca_cfg.disabled for micras */
 EXPORT_SYMBOL_GPL(mce_disabled);
 
-static u64 mce_rdmsrl(u32 msr);
 #define __do_mca_callout(which, ...)	do { if (which) which(__VA_ARGS__); } while (0)
 #define do_mca_exc_entry(...) __do_mca_callout(mca_exc_entry, __VA_ARGS__)
 #define do_mca_exc_panic(...) __do_mca_callout(mca_exc_panic, __VA_ARGS__)

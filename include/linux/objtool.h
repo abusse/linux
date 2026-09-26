@@ -163,6 +163,8 @@
 .endm
 .macro STACK_FRAME_NON_STANDARD func:req
 .endm
+.macro STACK_FRAME_NON_STANDARD_FP func:req
+.endm
 .macro ANNOTATE_NOENDBR
 .endm
 .macro REACHABLE

@@ -764,14 +764,21 @@ void __init fpu__init_system_xstate(unsigned int legacy_size)
 	 * xstate features FP|SSE|YMM|ZMM so ptrace and the signal frame
 	 * carry it (same ABI as the MPSS kernel).
 	 */
-	xfeatures_mask_all = XFEATURE_MASK_FP | XFEATURE_MASK_SSE |
-			 XFEATURE_MASK_YMM | XFEATURE_MASK_ZMM;
-	fpu_kernel_xstate_size = sizeof(struct xregs_state);
-	fpu_user_xstate_size = fpu_kernel_xstate_size;
-	update_regset_xstate_info(fpu_user_xstate_size, xfeatures_mask_all);
-	fpu__init_prepare_fx_sw_frame();
+	fpu_kernel_cfg.max_features = XFEATURE_MASK_FP | XFEATURE_MASK_SSE |
+				      XFEATURE_MASK_YMM | XFEATURE_MASK_ZMM;
+	fpu_kernel_cfg.default_features = fpu_kernel_cfg.max_features;
+	fpu_user_cfg.max_features = fpu_kernel_cfg.max_features;
+	fpu_user_cfg.default_features = fpu_kernel_cfg.max_features;
+	fpu_kernel_cfg.max_size = sizeof(struct xregs_state);
+	fpu_kernel_cfg.default_size = fpu_kernel_cfg.max_size;
+	fpu_user_cfg.max_size = fpu_kernel_cfg.max_size;
+	fpu_user_cfg.default_size = fpu_kernel_cfg.max_size;
+	fpstate_reset(&current->thread.fpu);
+	update_regset_xstate_info(fpu_user_cfg.max_size, fpu_user_cfg.max_features);
+	init_fpstate.size = fpu_kernel_cfg.default_size;
+	init_fpstate.xfeatures = fpu_kernel_cfg.default_features;
 	pr_info("x86/fpu: KNC VPU state as xstate 0x%llx, context size is %d bytes.\n",
-		xfeatures_mask_all, fpu_kernel_xstate_size);
+		fpu_kernel_cfg.max_features, fpu_kernel_cfg.max_size);
 	return;
 #endif
 	if (!boot_cpu_has(X86_FEATURE_XSAVE)) {
