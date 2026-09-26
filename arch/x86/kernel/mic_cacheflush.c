@@ -105,7 +105,7 @@ void set_icache_snoop(void *unused)
  * to disable icache. Only disable if the command line ICACHE_CMDLINE
  * is present
  */
-void __cpuinit disable_icache_snoop(void)
+void disable_icache_snoop(void)
 {
 	if (!cmd_parsed)
 		parse_cmdline_icache(saved_command_line);

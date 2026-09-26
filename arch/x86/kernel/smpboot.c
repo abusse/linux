@@ -1329,7 +1329,7 @@ static void __init smp_get_logical_apicid(void)
  *            for common interface support.
  */
 #ifdef CONFIG_PARALLEL_AP_BOOT
-static int __cpuinit
+static int 
 _pre_wakeup_aps_via_init_broadcast(void)
 {
 
@@ -1363,7 +1363,7 @@ _pre_wakeup_aps_via_init_broadcast(void)
 	return (send_status);
 }
 
-static int __cpuinit
+static int 
 kick_secondary_cpu(int phys_apicid, unsigned long start_eip)
 {
 	unsigned long send_status, accept_status = 0;
@@ -1454,7 +1454,7 @@ kick_secondary_cpu(int phys_apicid, unsigned long start_eip)
 	return (send_status | accept_status);
 }
 
-int __cpuinit do_check_cpu(int cpu)
+int do_check_cpu(int cpu)
 {
 	int timeout;
 	int boot_error = 0;
@@ -1529,7 +1529,7 @@ int __cpuinit do_check_cpu(int cpu)
 	return 0;
 }
 
-static int __cpuinit do_boot_cpu_parallel(int apicid, int cpu)
+static int do_boot_cpu_parallel(int apicid, int cpu)
 {
 	unsigned long boot_error = 0;
 	unsigned long start_ip;
@@ -1599,12 +1599,12 @@ do_rest:
 	return boot_error;
 }
 
-int __cpuinit do_pre_wakeup_aps(void)
+int do_pre_wakeup_aps(void)
 {
 	return (_pre_wakeup_aps_via_init_broadcast());
 }
 
-int __cpuinit native_cpu_up_parallel(unsigned int cpu)
+int native_cpu_up_parallel(unsigned int cpu)
 {
 	int apicid = apic->cpu_present_to_apicid(cpu);
 	int err;
