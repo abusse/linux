@@ -1391,7 +1391,6 @@ static int mic_cpufreq_target(struct cpufreq_policy *policy,
 */
 processthermal:
 
-	freqs.cpu = policy->cpu;
 	cpufreq_freq_transition_begin(policy, &freqs);
 
 	spin_lock_irqsave(&mic_cpufreq_lock, flags);
@@ -1431,13 +1430,11 @@ processthermal:
 		tmp = freqs.new;
 		freqs.new = freqs.old;
 		freqs.old = tmp;
-		freqs.cpu = policy->cpu;
 		cpufreq_freq_transition_begin(policy, &freqs);
 		cpufreq_freq_transition_end(policy, &freqs, 0);
 		dprintk("Rolling back freq change\n");
 		goto out;
 	}
-	freqs.cpu = policy->cpu;
 	cpufreq_freq_transition_end(policy, &freqs, 0);
 
 	/* Check if we have had a asynch event meanwhile */
@@ -1556,7 +1553,6 @@ static int mic_cpufreq_blocking_notifier(struct notifier_block *nb, unsigned lon
  			*/  		 
 			freqs.new = prochotfrequency;
 			freqs.old = lastfreq;
-			freqs.cpu = POLICY_CPU;	
 			spin_unlock_irqrestore(&mic_cpufreq_lock, flags);
 			if (policy) {
 				cpufreq_freq_transition_begin(policy, &freqs);
@@ -1572,7 +1568,6 @@ static int mic_cpufreq_blocking_notifier(struct notifier_block *nb, unsigned lon
 		maxcorefreq = maxcorefreq_saved;
 		freqs.old = prochotfrequency;
 		freqs.new = lastfreq;
-		freqs.cpu = POLICY_CPU;	
 		smp_wmb();
 		asynch_throttle(lastfreq);
 		thermalevent = 0;
