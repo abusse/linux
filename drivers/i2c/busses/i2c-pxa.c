@@ -58,6 +58,7 @@
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/ratelimit.h>
 
 #include <asm/irq.h>
 //#include <plat/i2c.h>
@@ -769,7 +770,7 @@ static int i2c_pxa_pio_set_master(struct pxa_i2c *i2c)
 	}
 
 	if (timeout < 0) {
-		printk("pxa_pio_set_master '%c': ISR %05x, ICR %03x, IDBR %02x, IBMR %x\n",
+		pr_err_ratelimited("pxa_pio_set_master '%c': ISR %05x, ICR %03x, IDBR %02x, IBMR %x\n",
 				pxa_state,
 				readl(_ISR(i2c)) & ~0xfffe0000,
 				readl(_ICR(i2c)) & ~0xfffff800,
@@ -777,7 +778,7 @@ static int i2c_pxa_pio_set_master(struct pxa_i2c *i2c)
 				readl(_IBMR(i2c)) & ~0xfffffffc);
 		i2c_pxa_scream_blue_murder(i2c, "pxa_pio_set_master: timeout");
 		show_state(i2c);
-		dev_err(&i2c->adap.dev,
+		dev_err_ratelimited(&i2c->adap.dev,
 			"i2c_pxa: timeout waiting for bus free\n");
 		return I2C_RETRY;
 	}
@@ -798,7 +799,7 @@ static int i2c_pxa_do_pio_xfer(struct pxa_i2c *i2c,
 
 	ret = i2c_pxa_pio_set_master(i2c);
 	if (ret) {
-		printk("pxa_do_pio_xfer: timeout to become master\n");
+		pr_err_ratelimited("pxa_do_pio_xfer: timeout to become master\n");
 		goto out;
 	}
 
