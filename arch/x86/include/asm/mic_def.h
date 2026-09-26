@@ -52,6 +52,7 @@ extern struct clocksource clocksource_micetc;
 
 #define MIC_NUM_IOAPIC_ENTRIES	25
 void arch_setup_sbox_irqs(unsigned int *irqs, int n);
+void __init mic_construct_default_ioirq_mptable(int mpc_default_type);
 void save_APICICR_setup(uint64_t *apicicr);
 void restore_APICICR_setup(uint64_t *apicicr);
 extern void __iomem *mic_sbox_mmio_va;

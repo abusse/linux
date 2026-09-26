@@ -170,7 +170,6 @@ static inline void smpboot_restore_warm_reset_vector(void)
 
 #ifdef CONFIG_X86_EARLYMIC
 extern void disable_icache_snoop(void);
-extern void mic_construct_default_ioirq_mptable(int mpc_default_type) __init;
 extern void mic_smpt_init(void) __init;
 #endif
 #ifdef CONFIG_PARALLEL_AP_BOOT
@@ -1062,7 +1061,6 @@ void __init smp_prepare_cpus_common(void)
 
 #ifdef CONFIG_X86_EARLYMIC
 	disable_icache_snoop();		/* we are the BSP */
-	mic_construct_default_ioirq_mptable(0);	/* populate mp_irqs for the MIC IOAPIC pins */
 	mic_smpt_init();		/* MIC system memory page tables (host access) */
 #endif
 	for_each_possible_cpu(cpu) {
