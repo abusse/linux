@@ -353,12 +353,14 @@ void __init mic_smpt_init(void)
 }
 #endif
 
-static unsigned long intel_mic_get_wallclock(void)
+/* No RTC on the card; time comes from the host via ntp. */
+static void intel_mic_get_wallclock(struct timespec *ts)
 {
-	return 0UL;
+	ts->tv_sec = 0;
+	ts->tv_nsec = 0;
 }
 
-static int intel_mic_set_wallclock(unsigned long nowtime)
+static int intel_mic_set_wallclock(const struct timespec *ts)
 {
 	return -1;
 }
@@ -457,16 +459,17 @@ static irqreturn_t mic_shutdown_isr(int irq, void *unused)
  *  interrupts and host shutdown interrupt.
  *  Host requests an orderly uOS shutdown by writing to SBOX APICICR1.
 *------------------------------------------------------------------------------*/
-void __init mic_setup_isr(void)
+static int __init mic_setup_isr(void)
 {
 	int ret;
-	int i;
 	arch_setup_sbox_irqs(sbox_irqs, ARRAY_SIZE(sbox_irqs));
-	if (ret = request_irq(sbox_irqs[1], mic_shutdown_isr, IRQF_DISABLED, "Shutdown", NULL)) {
+	ret = request_irq(sbox_irqs[1], mic_shutdown_isr, 0, "Shutdown", NULL);
+	if (ret) {
 		printk("ret value=%d, irq=%d\n", ret, sbox_irqs[1]);
 		BUG_ON(1);
 	}
 	printk("irq for shutdown isr %d\n", sbox_irqs[1]);
+	return 0;
 }
 late_initcall(mic_setup_isr);
 

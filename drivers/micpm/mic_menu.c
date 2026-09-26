@@ -139,12 +139,12 @@ static int __read_mostly mic_pkgstate_ready;
 struct activity actrecs[MAX_CPUS];
 void mic_update_activity(struct task_struct *p)
 {
-	struct pc3record *pr = &__get_cpu_var(pc3data);
+	struct pc3record *pr = this_cpu_ptr(&pc3data);
 	int cpu = smp_processor_id();
 	int times = actrecs[cpu].times;
 	
 	if(pc3policy) {
-		if(!(__get_cpu_var(policychanged))) {
+		if(!(__this_cpu_read(policychanged))) {
 			if(times < MAX_ACTIVITY_RECORDS) {
 				actrecs[cpu].actarr[times].pid=task_pid_nr(p);
 				strcpy(actrecs[cpu].actarr[times].name,p->comm);
@@ -306,14 +306,14 @@ static inline int performance_multiplier(void)
 
 void mic_pc3_enable(void)
 {
-	struct pc3record *pr = &__get_cpu_var(pc3data);
+	struct pc3record *pr = this_cpu_ptr(&pc3data);
 
 	atomic_dec(&pr->pc3_disable);
 }
 
 void mic_pc3_disable(void)
 {
-	struct pc3record *pr = &__get_cpu_var(pc3data);
+	struct pc3record *pr = this_cpu_ptr(&pc3data);
 
 	atomic_inc(&pr->pc3_disable);
 }
@@ -326,13 +326,13 @@ static u64 div_round64(u64 dividend, u32 divisor)
 
 static int mic_test_pc3ready(int cpu)
 {
-	struct pc3record *pr = &__get_cpu_var(pc3data);
+	struct pc3record *pr = this_cpu_ptr(&pc3data);
 	cputime64_t user = kcpustat_cpu(cpu).cpustat[CPUTIME_USER] + kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
 	
 	if(!mic_pkgstate_ready || !pc3policy)
 		return 0;
-	if(__get_cpu_var(policychanged)) {
-		__get_cpu_var(policychanged)=0;
+	if(__this_cpu_read(policychanged)) {
+		__this_cpu_write(policychanged, 0);
 		cpumask_clear(&pc3readymask);
 	}
 	else { 
@@ -365,14 +365,15 @@ static int mic_test_pc3ready(int cpu)
  * @data: per_cpu menu_device pointer. 
  *
  */
-static int mic_select(int index, struct menu_device *data, struct cpuidle_device  *dev)
+static int mic_select(int index, struct menu_device *data,
+		      struct cpuidle_driver *drv, struct cpuidle_device *dev)
 {
 	int cpu = dev->cpu;
 	int newstate = index;
 	
 	if(pc3_config && mic_test_pc3ready(cpu)) {
 	/* Choose the deepest state possible */
-		newstate = dev->state_count-1;
+		newstate = drv->state_count-1;
 	}
 	return newstate;
 }		
@@ -383,7 +384,7 @@ static int mic_select(int index, struct menu_device *data, struct cpuidle_device
  **/
 static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev)
 {
-	struct menu_device *data = &__get_cpu_var(menu_devices);
+	struct menu_device *data = this_cpu_ptr(&menu_devices);
 /*	int latency_req = pm_qos_requirement(PM_QOS_CPU_DMA_LATENCY);  */
 	int latency_req = MIC_LATENCY_REQ;
 	int i;
@@ -430,7 +431,7 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev)
 
 
 	/* find the deepest idle state that satisfies our constraints */
-	for (i = CPUIDLE_DRIVER_STATE_START; i < dev->state_count; i++) {
+	for (i = CPUIDLE_DRIVER_STATE_START; i < drv->state_count; i++) {
 		struct cpuidle_state *s = &drv->states[i];
 
 		if (s->target_residency > data->predicted_us)
@@ -442,7 +443,7 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev)
 		data->exit_us = s->exit_latency;
 		data->last_state_idx = i;
 	}
-	return mic_select(data->last_state_idx,data,dev);
+	return mic_select(data->last_state_idx, data, drv, dev);
 }
 
 /**
@@ -454,7 +455,7 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev)
 **/
 static void menu_reflect(struct cpuidle_device *dev, int index)
 {
-	struct menu_device *data = &__get_cpu_var(menu_devices);
+	struct menu_device *data = this_cpu_ptr(&menu_devices);
 	data->needs_update = 1;
 }
 
@@ -465,11 +466,8 @@ static void menu_reflect(struct cpuidle_device *dev, int index)
  */
 static void menu_update(struct cpuidle_device *dev)
 {
-	struct cpuidle_driver *drv = cpuidle_get_driver();
-	struct menu_device *data = &__get_cpu_var(menu_devices);
-	int last_idx = data->last_state_idx;
+	struct menu_device *data = this_cpu_ptr(&menu_devices);
 	unsigned int last_idle_us = cpuidle_get_last_residency(dev);
-	struct cpuidle_state *target = &drv->states[last_idx];
 	unsigned int measured_us;
 	u64 new_factor;
 
@@ -478,9 +476,6 @@ static void menu_update(struct cpuidle_device *dev)
 	 * are basically lost in the dark.  As a compromise, assume we slept
 	 * for the whole expected time.
 	 */
-	if (unlikely(!(target->flags & CPUIDLE_FLAG_TIME_VALID)))
-		last_idle_us = data->expected_us;
-
 
 	measured_us = last_idle_us;
 
