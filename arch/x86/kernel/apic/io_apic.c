@@ -2883,7 +2883,7 @@ static int find_free_ioapic_entry(void)
  * @gsi_base:	base of GSI associated with the IOAPIC
  * @cfg:	configuration information for the IOAPIC
  */
-int mp_register_ioapic(int id, u32 address, u32 gsi_base,
+int mp_register_ioapic(int id, u64 address, u32 gsi_base,
 		       struct ioapic_domain_cfg *cfg)
 {
 	bool hotplug = !!ioapic_initialized;
