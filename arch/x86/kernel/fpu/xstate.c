@@ -764,14 +764,14 @@ void __init fpu__init_system_xstate(unsigned int legacy_size)
 	 * xstate features FP|SSE|YMM|ZMM so ptrace and the signal frame
 	 * carry it (same ABI as the MPSS kernel).
 	 */
-	xfeatures_mask = XFEATURE_MASK_FP | XFEATURE_MASK_SSE |
+	xfeatures_mask_all = XFEATURE_MASK_FP | XFEATURE_MASK_SSE |
 			 XFEATURE_MASK_YMM | XFEATURE_MASK_ZMM;
 	fpu_kernel_xstate_size = sizeof(struct xregs_state);
 	fpu_user_xstate_size = fpu_kernel_xstate_size;
-	update_regset_xstate_info(fpu_user_xstate_size, xfeatures_mask);
+	update_regset_xstate_info(fpu_user_xstate_size, xfeatures_mask_all);
 	fpu__init_prepare_fx_sw_frame();
 	pr_info("x86/fpu: KNC VPU state as xstate 0x%llx, context size is %d bytes.\n",
-		xfeatures_mask, fpu_kernel_xstate_size);
+		xfeatures_mask_all, fpu_kernel_xstate_size);
 	return;
 #endif
 	if (!boot_cpu_has(X86_FEATURE_XSAVE)) {

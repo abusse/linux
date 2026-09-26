@@ -1,3 +1,4 @@
+#include <linux/io.h>
 /* * Copyright (c) Intel Corporation (2011).
 *
 * Disclaimer: The codes contained in these modules may be specific to the

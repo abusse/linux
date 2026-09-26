@@ -48,7 +48,7 @@
  	 
 .code64
 
-ENTRY(pc6_exit_64)
+SYM_ENTRY(pc6_exit_64, SYM_L_GLOBAL, SYM_A_ALIGN)
 	/*
 	 * The bootloader puts us here on a PC6 Exit.
 	 * All cpus come here in no particular order.
@@ -101,11 +101,11 @@ centry:
 	pushq	%rax		# target address in negative space
 	lretq
 #	ret
-ENDPROC(pc6_exit_64)
+SYM_FUNC_END(pc6_exit_64)
 	.balign	PAGE_SIZE;
-ENTRY(pc6_trampoline_pgt)
+SYM_ENTRY(pc6_trampoline_pgt, SYM_L_GLOBAL, SYM_A_ALIGN)
 	.quad	level3_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE_NOENC
 	.fill	510,8,0
 	.quad	level3_kernel_pgt - __START_KERNEL_map + _KERNPG_TABLE_NOENC
-ENTRY(pc6_trampoline_end)
+SYM_ENTRY(pc6_trampoline_end, SYM_L_GLOBAL, SYM_A_ALIGN)
 

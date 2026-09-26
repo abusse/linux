@@ -290,7 +290,7 @@ config MATOM
 config ML1OM
 	bool "Intel Aubrey Isle"
 	depends on X86_MICPCI
-	---help---
+	help
 
 	  Select this for the CPU used in the Intel Many Integrated Core
 	  (Intel MIC) Software Development Vehicle code-named Knights
@@ -306,7 +306,7 @@ config ML1OM
 config MK1OM
 	bool "Intel Knights Corner"
 	depends on X86_MICPCI
-	---help---
+	help
 
 	  Select this for the CPU used in the Intel Many Integrated Core
 	  (Intel MIC) products code-named Knights Corner. The CPU is an
@@ -432,7 +432,7 @@ config PARALLEL_AP_BOOT
     bool "Parallel Boot of Secondary CPUs"
     default y
     depends on ML1OM || MK1OM
-    ---help---
+    help
     This enables parallel secondary processor bringup on ML1OM
     and MK1OM processors. This greatly reduces boot time, but is
     still EXPERIMENTAL.

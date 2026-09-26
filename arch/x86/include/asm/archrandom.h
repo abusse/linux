@@ -17,6 +17,11 @@
 
 /* Unconditional execution of RDRAND and RDSEED */
 
+#ifdef CONFIG_X86_EARLYMIC
+/* no RDRAND/RDSEED on KNC (and no such mnemonics in the k1om assembler) */
+static inline bool __must_check rdrand_long(unsigned long *v) { return false; }
+static inline bool __must_check rdseed_long(unsigned long *v) { return false; }
+#else
 static inline bool __must_check rdrand_long(unsigned long *v)
 {
 	bool ok;
@@ -39,6 +44,8 @@ static inline bool __must_check rdseed_long(unsigned long *v)
 		     : CC_OUT(c) (ok), [out] "=r" (*v));
 	return ok;
 }
+
+#endif
 
 /*
  * These are the generic interfaces; they must not be declared if the

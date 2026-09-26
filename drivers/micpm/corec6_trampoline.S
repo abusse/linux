@@ -61,7 +61,7 @@
 .section .rodata, "a", @progbits
 .code16
 
-ENTRY(cc6_trampoline_data)
+SYM_ENTRY(cc6_trampoline_data, SYM_L_GLOBAL, SYM_A_ALIGN)
 r_base = .
 	cli			# We should be safe anyway
 #	wbinvd	/* don't do this	*/
@@ -141,7 +141,7 @@ tidt:
 	# Duplicate the global descriptor table
 	# so the kernel can live anywhere
 	.balign 4
-ENTRY(tgdt)
+SYM_ENTRY(tgdt, SYM_L_GLOBAL, SYM_A_ALIGN)
 	.short	tgdt_end - tgdt		# gdt limit
 	.long	tgdt - r_base
 	.short 0
@@ -152,18 +152,18 @@ tgdt_end:
 
 	.balign 4
 
-ENTRY(startup_32_vector)
+SYM_ENTRY(startup_32_vector, SYM_L_GLOBAL, SYM_A_ALIGN)
 	.long	startup_32 - r_base
 	.word	__KERNEL32_CS, 0
 
 	.balign 4
-ENTRY(startup_64_vector)
+SYM_ENTRY(startup_64_vector, SYM_L_GLOBAL, SYM_A_ALIGN)
 	.long	startup_64 - r_base
 	.word	__KERNEL_CS, 0
 	
 	.balign PAGE_SIZE		
-ENTRY(cc6_trampoline_level4_pgt)
+SYM_ENTRY(cc6_trampoline_level4_pgt, SYM_L_GLOBAL, SYM_A_ALIGN)
 	.quad	level3_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE_NOENC
 	.fill	510,8,0
 	.quad	level3_kernel_pgt - __START_KERNEL_map + _KERNPG_TABLE_NOENC
-ENTRY(cc6_trampoline_end)
+SYM_ENTRY(cc6_trampoline_end, SYM_L_GLOBAL, SYM_A_ALIGN)
