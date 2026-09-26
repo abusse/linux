@@ -1817,7 +1817,17 @@ static void ioapic_setup_msg_from_msi(struct irq_data *irq_data,
 	 * All other modes have bit 0-6 of dmar_index_0_14 cleared and the
 	 * topmost 8 bits are destination id bit 0-7 (entry::destid_0_7).
 	 */
+#ifdef CONFIG_X86_EARLYMIC
+	/*
+	 * No interrupt remapping on KNC, and its route entry keeps the
+	 * destination id in bits 32-39 (see IO_APIC_route_entry): copy the
+	 * destination by name instead of through the IR index overlay.
+	 */
+	entry->destid_0_7		= msg.arch_addr_lo.destid_0_7;
+	entry->virt_destid_8_14		= msg.arch_addr_lo.virt_destid_8_14;
+#else
 	entry->ir_index_0_14		= msg.arch_addr_lo.dmar_index_0_14;
+#endif
 }
 
 static void ioapic_configure_entry(struct irq_data *irqd)
