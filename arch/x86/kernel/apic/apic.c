@@ -379,7 +379,11 @@ static void __setup_APIC_LVTT(unsigned int clocks, int oneshot, int irqen)
 		 * writing to the APIC LVTT and TSC_DEADLINE MSR isn't serialized.
 		 * According to Intel, MFENCE can do the serialization here.
 		 */
+#ifdef CONFIG_X86_EARLYMIC
+		mb();		/* no mfence on k1om (and no TSC deadline timer) */
+#else
 		asm volatile("mfence" : : : "memory");
+#endif
 		return;
 	}
 
