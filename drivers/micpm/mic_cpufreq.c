@@ -1316,7 +1316,7 @@ static int mic_cpu_init(struct cpufreq_policy *policy)
 	/* Adjust PROCHOT freq so it is not lower than Pn*/
 	if(prochotfrequency < policy->cpuinfo.min_freq)
 		prochotfrequency=policy->cpuinfo.min_freq;
-	cpufreq_table_validate_and_show(policy, freq_data.freq_table);
+	policy->freq_table = freq_data.freq_table;
 	printk("Returning from mic_cpu_init\n");
 	return 0;
 }
@@ -1624,7 +1624,7 @@ int mic_cpufreq_init(void)
 		freq_data.device = DEVICE_K1OM;
 		freq_data.mdev.get_core_freq = get_cur_freq_k1om;
 		freq_data.mdev.set_core_freq = set_cur_freq_k1om;
-		knc_stepping = boot_cpu_data.x86_mask;
+		knc_stepping = boot_cpu_data.x86_stepping;
 		printk("K1OM MIC device of stepping %d found\n", knc_stepping);
 	} else {
 		printk("Unsupported MIC device ");
