@@ -224,8 +224,10 @@ SYM_CODE_START_NOALIGN(startup_64)
 .Lon_kernel_cs:
 	UNWIND_HINT_EMPTY
 
-	/* Sanitize CPU configuration */
+#ifndef CONFIG_X86_EARLYMIC
+	/* Sanitize CPU configuration (KNC: no SSE, no MISC_ENABLE MSR) */
 	call verify_cpu
+#endif
 
 	/*
 	 * Perform pagetable fixups. Additionally, if SME is active, encrypt
@@ -259,8 +261,10 @@ SYM_CODE_START(secondary_startup_64)
 	 * after the boot processor executes this code.
 	 */
 
-	/* Sanitize CPU configuration */
+#ifndef CONFIG_X86_EARLYMIC
+	/* Sanitize CPU configuration (KNC: no SSE, no MISC_ENABLE MSR) */
 	call verify_cpu
+#endif
 
 	/*
 	 * The secondary_startup_64_no_verify entry point is only used by
