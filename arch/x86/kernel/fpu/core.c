@@ -116,9 +116,9 @@ void save_fpregs_to_fpstate(struct fpu *fpu)
 {
 #ifdef CONFIG_X86_EARLYMIC
 	/* KNC: fxsave the x87 state, then store the vector/mask/VXCSR block. */
-	copy_fxregs_to_kernel(fpu);
+	fxsave(&fpu->state.fxsave);
 	save_init_vpu(&fpu->state.xsave);
-	return 1;
+	return;
 #endif
 	if (likely(use_xsave())) {
 		os_xsave(fpu->fpstate);
@@ -141,6 +141,12 @@ void save_fpregs_to_fpstate(struct fpu *fpu)
 
 void restore_fpregs_from_fpstate(struct fpstate *fpstate, u64 mask)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* no XRSTOR; the VPU data and mask registers ride along with the fx state */
+	fxrstor(&fpstate->fxsave);
+	WARN_ON_FPU(restore_vpu_checking(&fpstate->xsave.vpu));
+	return;
+#endif
 	/*
 	 * AMD K7/K8 and later CPUs up to Zen don't save/restore
 	 * FDP/FIP/FOP unless an exception is pending. Clear the x87 state
@@ -150,7 +156,9 @@ void restore_fpregs_from_fpstate(struct fpstate *fpstate, u64 mask)
 	if (unlikely(static_cpu_has_bug(X86_BUG_FXSAVE_LEAK))) {
 		asm volatile(
 			"fnclex\n\t"
-			"emms\n\t"
+#ifndef CONFIG_X86_EARLYMIC
+			"emms\n\t"		/* KNC has no MMX */
+#endif
 			"fildl %[addr]"	/* set F?P to defined value */
 			: : [addr] "m" (*fpstate));
 	}
@@ -488,7 +496,12 @@ static inline unsigned int init_fpstate_copy_size(void)
 static inline void fpstate_init_fxstate(struct fpstate *fpstate)
 {
 	fpstate->regs.fxsave.cwd = 0x37f;
+#ifdef CONFIG_MK1OM
+	/* KNC VXCSR: the 0x1f80 default bits are MBZ, DUE (bit 21) must be set. */
+	fpstate->regs.fxsave.mxcsr = VXCSR_DEFAULT;
+#else
 	fpstate->regs.fxsave.mxcsr = MXCSR_DEFAULT;
+#endif
 }
 
 /*
