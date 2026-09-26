@@ -2072,7 +2072,7 @@ static struct irq_chip ioapic_chip __read_mostly = {
  */
 static void sbox_ack_apic_edge(struct irq_data *data)
 {
-	irq_complete_move(data->chip_data);
+	irq_complete_move(irqd_cfg(data));
 	irq_move_irq(data);
 	ack_APIC_irq();
 }
@@ -2102,7 +2102,7 @@ static struct irq_chip sbox_chip = {
 	.irq_unmask	= unmask_sbox_irq,
 	.irq_mask	= mask_sbox_irq,
 	.irq_ack	= sbox_ack_apic_edge,
-	.irq_retrigger	= ioapic_retrigger_irq,
+	.irq_retrigger	= apic_retrigger_irq,
 };
 
 static void setup_sbox_irq(int irq, int i)
