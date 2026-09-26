@@ -156,7 +156,6 @@ static void init_freq_invariance(bool secondary);
  */
 #ifdef CONFIG_X86_EARLYMIC
 extern void disable_icache_snoop(void);
-extern void mic_construct_default_ioirq_mptable(int mpc_default_type) __init;
 extern void mic_smpt_init(void) __init;
 #endif
 #ifdef CONFIG_PARALLEL_AP_BOOT
@@ -1659,7 +1658,6 @@ void __init native_smp_prepare_cpus(unsigned int max_cpus)
 	smp_store_boot_cpu_info(); /* Final full version of the data */
 #ifdef CONFIG_X86_EARLYMIC
 	disable_icache_snoop();		/* we are the BSP */
-	mic_construct_default_ioirq_mptable(0);	/* populate mp_irqs for the MIC IOAPIC pins */
 	mic_smpt_init();		/* MIC system memory page tables (host access) */
 #endif
 	cpumask_copy(cpu_callin_mask, cpumask_of(0));
