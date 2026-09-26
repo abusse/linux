@@ -438,7 +438,7 @@ void mic_restore_processor_state(struct cc6_saved_context *ctxt)
 	/*
 	 * restore XCR0 for xsave capable cpu's.
 	 */
-	if (cpu_has_xsave)
+	if (boot_cpu_has(X86_FEATURE_XSAVE))
 		xsetbv(XCR_XFEATURE_ENABLED_MASK, xfeatures_mask);
 
 	fix_processor_context();

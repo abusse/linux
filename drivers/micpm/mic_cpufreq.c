@@ -1362,13 +1362,8 @@ static int mic_cpufreq_target(struct cpufreq_policy *policy,
 			return -EINVAL;
 	}
 	dprintk("mic_cpufreq_target called\n");
-	if (unlikely(cpufreq_frequency_table_target(policy,
-						    freq_data.freq_table,
-						    target_freq, relation,
-						    &newstate))) {
-		dprintk("Target not in table\n");
-		retval = -EINVAL;
-	}
+	/* 4.8+: picks from policy->freq_table, cannot fail */
+	newstate = cpufreq_frequency_table_target(policy, target_freq, relation);
 
 	freqs.old = get_cur_freq(policy->cpu);
 	freqs.new = freq_data.freq_table[newstate].frequency;
@@ -1453,15 +1448,9 @@ processthermal:
 		spin_unlock_irqrestore(&mic_cpufreq_lock, flags);
 	} else {
 		asynchevent = 0;
-		if (unlikely(cpufreq_frequency_table_target(policy,
-							    freq_data.
-							    freq_table,
-							    maxcorefreq,
-							    CPUFREQ_RELATION_H,
-							    &newstate))) {
-			retval = -EINVAL;
-			BUG_ON(retval);
-		} else {
+		newstate = cpufreq_frequency_table_target(policy, maxcorefreq,
+							  CPUFREQ_RELATION_H);
+		{
 			freqs.old = get_cur_freq(policy->cpu);
 			freqs.new = freq_data.freq_table[newstate].frequency;
 			if (freqs.old == freqs.new) {
