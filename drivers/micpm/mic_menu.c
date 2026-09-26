@@ -470,7 +470,7 @@ static void menu_reflect(struct cpuidle_device *dev, int index)
 static void menu_update(struct cpuidle_device *dev)
 {
 	struct menu_device *data = this_cpu_ptr(&menu_devices);
-	unsigned int last_idle_us = dev->last_residency;
+	unsigned int last_idle_us = dev->last_residency_ns / NSEC_PER_USEC;
 	unsigned int measured_us;
 	u64 new_factor;
 

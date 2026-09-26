@@ -52,7 +52,7 @@
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
-#include <linux/i2c-pxa.h>
+#include "i2c-pxa-slave.h"	/* 5.9 folded the slave client into platform_data/i2c-pxa.h, which clashes with the KNC copy */
 #include <linux/platform_device.h>
 #include <linux/err.h>
 #include <linux/clk.h>
@@ -1309,7 +1309,7 @@ static int i2c_pxa_probe(struct platform_device *dev)
 	       dev_name(&i2c->adap.dev));
 #endif
 	for (i = 0; i < ARRAY_SIZE(info); i++)
-		i2c_new_device(&i2c->adap, &info[i]);
+		i2c_new_client_device(&i2c->adap, &info[i]);
 	return 0;
 
 eadapt:

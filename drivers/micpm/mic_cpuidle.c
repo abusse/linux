@@ -40,6 +40,7 @@
 #include <asm/cpu_entry_area.h>
 #include <asm/tlbflush.h>
 #include <asm/io_apic.h>
+#include <asm/apic.h>
 /* Package-state (PC3/PC6) helpers ported to Linux 3.4: */
 extern int timekeeping_suspend(void);
 extern void timekeeping_resume(void);
@@ -457,7 +458,7 @@ void mic_restore_processor_state(struct cc6_saved_context *ctxt)
 	 * restore XCR0 for xsave capable cpu's.
 	 */
 	if (boot_cpu_has(X86_FEATURE_XSAVE))
-		xsetbv(XCR_XFEATURE_ENABLED_MASK, xfeatures_mask);
+		xsetbv(XCR_XFEATURE_ENABLED_MASK, xfeatures_mask_all);
 
 	fix_processor_context();
 	set_mtrr_state();
