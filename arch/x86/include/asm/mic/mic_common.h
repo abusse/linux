@@ -95,6 +95,6 @@ static __always_inline int mic_hw_family(int unused)
 static __always_inline int mic_hw_stepping(int unused)
 {
 	struct cpuinfo_x86 *c = &cpu_data(0);
-	return c->x86_mask;
+	return c->x86_stepping;
 }
 #endif

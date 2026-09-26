@@ -1599,7 +1599,7 @@ static void identify_cpu(struct cpuinfo_x86 *c)
 #ifdef CONFIG_MK1OM
 		else if (c->x86 == 0x0b && c->x86_model == 0x01) {
 			/* KNC exposes no CPUID brand string; name it by stepping. */
-			switch (c->x86_mask) {
+			switch (c->x86_stepping) {
 			case 1:
 				strcpy(c->x86_model_id, "Intel Xeon Phi x100 Coprocessor (Knights Corner B0)");
 				break;
