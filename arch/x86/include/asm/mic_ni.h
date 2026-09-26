@@ -68,9 +68,13 @@
 
 #define STVXCSR_DISP32_EAX(disp32) ".byte 0x0f, 0xae, 0x98; .long " #disp32 "\n"
 
-#define LDVXCSR_DISP32_EAX(disp32) "orl $"__stringify(VXCSR_DEFAULT)","#disp32"(%%rax)\n\t" \
-				   "andl $~"__stringify(VXCSR_MBZ)","#disp32"(%%rax)\n\t" \
-				   "ldmxcsr "#disp32"(%%rax)\n"
+/* normalize in a register: the fpstate may be read-only (init_fpstate is __ro_after_init since 5.14) */
+#define LDVXCSR_DISP32_EAX(disp32) "movl "#disp32"(%%rax), %%ebx\n\t" \
+				   "orl $"__stringify(VXCSR_DEFAULT)", %%ebx\n\t" \
+				   "andl $~"__stringify(VXCSR_MBZ)", %%ebx\n\t" \
+				   "pushq %%rbx\n\t" \
+				   "ldmxcsr (%%rsp)\n\t" \
+				   "popq %%rbx\n"
 
 #else
 
