@@ -154,7 +154,7 @@ extern int mp_find_ioapic_pin(int ioapic, u32 gsi);
 extern int mp_map_gsi_to_irq(u32 gsi, unsigned int flags,
 			     struct irq_alloc_info *info);
 extern void mp_unmap_irq(int irq);
-extern int mp_register_ioapic(int id, u32 address, u32 gsi_base,
+extern int mp_register_ioapic(int id, u64 address, u32 gsi_base,
 			      struct ioapic_domain_cfg *cfg);
 extern int mp_unregister_ioapic(u32 gsi_base);
 extern int mp_ioapic_registered(u32 gsi_base);
