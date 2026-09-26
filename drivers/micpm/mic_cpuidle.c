@@ -37,6 +37,8 @@
 #include <linux/sched/clock.h>
 #include <linux/sched/idle.h>
 #include <asm/mmu_context.h>
+#include <asm/cpu_entry_area.h>
+#include <asm/tlbflush.h>
 #include <asm/io_apic.h>
 /* Package-state (PC3/PC6) helpers ported to Linux 3.4: */
 extern int timekeeping_suspend(void);
@@ -161,7 +163,7 @@ extern const unsigned char pc6_trampoline_end[];
 extern const unsigned char pc6_trampoline_pgt[];
 /* v3.10 removed the boot trampoline_level4_pgt (realmode-trampoline rework). The
  * CC6/PC6 resume trampolines that consume it are C-step-only; on B1 mic_setup_pc6/c6
- * are gated off (x86_mask!=KNC_C_STEP) and never run, so this page-sized placeholder
+ * are gated off (x86_stepping!=KNC_C_STEP) and never run, so this page-sized placeholder
  * only satisfies the linker. A real C-step CC6/PC6 revival must point it at a proper
  * identity pgd. */
 static unsigned char trampoline_level4_pgt[PAGE_SIZE] __attribute__((aligned(4096)));
@@ -339,20 +341,21 @@ static struct mic_cpuidle_states mic_cpuidle_data[MAX_KNC_CSTATES] = {
 static void fix_processor_context(void)
 {
 	int cpu = smp_processor_id();
-	struct tss_struct *t = &per_cpu(cpu_tss, cpu);
+	struct desc_struct *desc = get_cpu_gdt_rw(cpu);
+	tss_desc tss;
 
-	set_tss_desc(cpu, t);	/*
-				 * This just modifies memory; should not be
-				 * necessary. But... This is necessary, because
-				 * 386 hardware has concept of busy TSS or some
-				 * similar stupidity.
-				 */
-
-	get_cpu_gdt_rw(cpu)[GDT_ENTRY_TSS].type = 9;
+	/* reload TR: mark the GDT entry "available" first */
+	set_tss_desc(cpu, &get_cpu_entry_area(cpu)->tss.x86_tss);
+	memcpy(&tss, &desc[GDT_ENTRY_TSS], sizeof(tss_desc));
+	tss.type = 0x9;
+	write_gdt_entry(desc, GDT_ENTRY_TSS, &tss, DESC_TSS);
 
 	syscall_init();		/* This sets MSR_*STAR and related */
 	load_TR_desc();		/* This does ltr */
 	load_mm_ldt(current->active_mm);	/* This does lldt */
+	initialize_tlbstate_and_flush();
+	fpu__resume_cpu();
+	load_fixmap_gdt(cpu);
 }
 
 static void mic_save_processor_state(int apicid)
@@ -557,7 +560,7 @@ freeexit:
 }
 static inline int pc6_through_pc3(void)
 {
-	return(mic_pc6_on && (boot_cpu_data.x86_mask == KNC_C_STEP)); 
+	return(mic_pc6_on && (boot_cpu_data.x86_stepping == KNC_C_STEP)); 
 }
 static int mic_setup_pc6(void)
 {
@@ -1149,20 +1152,20 @@ static int __mic_idle_enter_c6(struct cpuidle_device *dev,
 	apicid = per_cpu(x86_cpu_to_apicid, dev->cpu);
 	core = apicid / 4;
 	/* Save cpu state       */
-	rdtscll(entrytime);
+	entrytime = rdtsc();
 	mic_save_processor_state(apicid);
 	atomic_or(1 << (thr + 1), &cc6_cpumask[core]);
 	tmp = atomic_inc_return(&cc6cpucnt[core]);
 	if (tmp == 4) {
 		retval = mic_switch_cc6_cpu(core, 1);
-		rdtscll(cc6entrytime[core]);
+		cc6entrytime[core] = rdtsc();
 	}
-	rdtscll(exittime);
+	exittime = rdtsc();
 	cc6latency[dev->cpu] += exittime - entrytime;
 	do {
 		retval = do_cc6entry_lowlevel(cc6_cntxt[apicid], cflush);
 		if (retval == MIC_STATE_C6) {
-			rdtscll(exittime);
+			exittime = rdtsc();
 			if(exittime > cc6_waketime[apicid])
 				cc6latency[dev->cpu] += exittime - cc6_waketime[apicid];
 			entrytime = cc6entrytime[core];
@@ -1464,9 +1467,9 @@ int __init mic_cpuidle_init(int cc6, int pc3, int pc6)
 	mic_cc6_on = cc6;
 	mic_pc3_on = pc3;
 	mic_pc6_on = pc6;
-	if (mic_cc6_on && boot_cpu_data.x86_mask != KNC_C_STEP)
+	if (mic_cc6_on && boot_cpu_data.x86_stepping != KNC_C_STEP)
 		mic_cc6_on = 0;
-	if (mic_pc6_on && boot_cpu_data.x86_mask != KNC_C_STEP)
+	if (mic_pc6_on && boot_cpu_data.x86_stepping != KNC_C_STEP)
 		mic_pc6_on = 0;
 	if (mic_setup_driver_states() < 0) {
 		printk(KERN_DEBUG PREFIX "No cpuidle states to register\n");
@@ -1490,7 +1493,7 @@ int __init mic_cpuidle_init(int cc6, int pc3, int pc6)
 			goto fail;
 	}
 	if (mic_pc6_on) {
-		if(boot_cpu_data.x86_mask == KNC_C_STEP) 
+		if(boot_cpu_data.x86_stepping == KNC_C_STEP) 
 			if (mic_setup_pc6()) {
 			printk(KERN_INFO "Failed PC6 setup\n");
 			mic_pc6_on=0;
@@ -1499,7 +1502,7 @@ int __init mic_cpuidle_init(int cc6, int pc3, int pc6)
 	}
 	/* Setup driver for core and package idle states.       */
 
-	if ((mic_cc6_on) && (boot_cpu_data.x86_mask == KNC_C_STEP)) {
+	if ((mic_cc6_on) && (boot_cpu_data.x86_stepping == KNC_C_STEP)) {
 		if (mic_setup_c6()) {
 			printk(KERN_INFO "Failed CC6 setup\n");
 			goto fail;
