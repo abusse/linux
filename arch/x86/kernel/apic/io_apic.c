@@ -3951,7 +3951,7 @@ static __init int bad_ioapic_register(int idx)
 	return 0;
 }
 
-void __init mp_register_ioapic(int id, u32 address, u32 gsi_base,
+void __init mp_register_ioapic(int id, u64 address, u32 gsi_base,
 			       struct ioapic_domain_cfg *cfg)
 {
 	int idx = 0;
