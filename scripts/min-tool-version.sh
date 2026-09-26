@@ -14,7 +14,7 @@ fi
 
 case "$1" in
 binutils)
-	echo 2.23.0
+	echo 2.22.0	# k1om binutils is 2.22.52 (MPSS 3.8.6)
 	;;
 gcc)
 	echo 5.1.0
