@@ -257,7 +257,7 @@ static int __init __calculate_tsc_comp(int64_t hz)
 #define MAX_ATTEMPTS 10
 	do {
 		local_irq_save(flags);
-		rdtscll(tsc1);
+		tsc1 = rdtsc();
 		etc1 = mic_etc_read(NULL);
 		local_irq_restore(flags);
 		/* Random value of 3secs
@@ -266,7 +266,7 @@ static int __init __calculate_tsc_comp(int64_t hz)
 		__delay_atleast_ms(3000);
 
 		local_irq_save(flags);
-		rdtscll(tsc2);
+		tsc2 = rdtsc();
 		etc2 = mic_etc_read(NULL);
 		local_irq_restore(flags);
 
@@ -359,13 +359,13 @@ void __init mic_smpt_init(void)
 #endif
 
 /* No RTC on the card; time comes from the host via ntp. */
-static void intel_mic_get_wallclock(struct timespec *ts)
+static void intel_mic_get_wallclock(struct timespec64 *ts)
 {
 	ts->tv_sec = 0;
 	ts->tv_nsec = 0;
 }
 
-static int intel_mic_set_wallclock(const struct timespec *ts)
+static int intel_mic_set_wallclock(const struct timespec64 *ts)
 {
 	return -1;
 }

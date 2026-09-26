@@ -383,8 +383,10 @@ static int mic_select(int index, struct menu_device *data,
  * menu_select - selects the next idle state to enter
  * @dev: the CPU
  **/
-static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev)
+static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
+		       bool *stop_tick)
 {
+	ktime_t delta_next;
 	struct menu_device *data = this_cpu_ptr(&menu_devices);
 /*	int latency_req = pm_qos_requirement(PM_QOS_CPU_DMA_LATENCY);  */
 	int latency_req = MIC_LATENCY_REQ;
@@ -405,7 +407,7 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev)
 
 	/* determine the expected residency time, round up */
 	data->expected_us =
-	    DIV_ROUND_UP((u32)ktime_to_ns(tick_nohz_get_sleep_length()), 1000);
+	    DIV_ROUND_UP((u32)ktime_to_ns(tick_nohz_get_sleep_length(&delta_next)), 1000);
 
 	
 	data->bucket = which_bucket(data->expected_us);
