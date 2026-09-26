@@ -2084,7 +2084,7 @@ static void setup_sbox_irq(int irq, int i)
 	irq_set_handler_data(irq, icraddr);
 	/* Write the vector number and destination apicid into the SBOX ICR */
 	writel(vector, icraddr);
-	writel(boot_cpu_physical_apicid, icraddr + 4);
+	writel(cfg->dest_apicid, icraddr + 4);
 	printk("irq %d for SBOX, vector=%d, icr=%u\n", irq, vector, readl(icraddr));
 }
 
@@ -2095,6 +2095,9 @@ void arch_setup_sbox_irqs(unsigned int *irqs, int n)
 	int irq, i;
 
 	init_irq_alloc_info(&info, NULL);
+	/* 4.15+: without a mask the vector domain only reserves (and later spreads the
+	 * vectors over CPUs); the ICR has one fixed destination, so assign on the BSP now. */
+	info.mask = cpumask_of(0);
 	irq = irq_domain_alloc_irqs(x86_vector_domain, n, node, &info);
 	BUG_ON(irq <= 0);
 	for (i = 0; i < n; i++) {
