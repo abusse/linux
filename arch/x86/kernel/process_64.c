@@ -493,13 +493,6 @@ start_thread_common(struct pt_regs *regs, unsigned long new_ip,
 	regs->cs		= _cs;
 	regs->ss		= _ss;
 	regs->flags		= X86_EFLAGS_IF;
-#ifdef CONFIG_X86_EARLYMIC
-	/* Load the fresh (init) mask registers instead of leaving the previous image's behind. */
-	fpu__initialize(&current->thread.fpu);
-	preempt_disable();
-	restore_mask_regs();
-	preempt_enable();
-#endif
 	force_iret();
 }
 

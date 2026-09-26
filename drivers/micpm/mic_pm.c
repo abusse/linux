@@ -161,23 +161,23 @@ static struct micpm_params * ras_parms;
 int cpuidle_inited,cpufreq_inited;    
 	    
 #define define_one_ro(_name)	\
-static struct global_attr _name =	\
+static struct kobj_attribute _name =	\
 __ATTR(_name, 0444, show_##_name, NULL)
 
 #define define_one_rw(_name) \
-static struct global_attr _name = \
+static struct kobj_attribute _name = \
 __ATTR(_name, 0644, show_##_name, store_##_name)
 
 #define show_one(file_name, module)				\
 static ssize_t show_##file_name				\
-(struct kobject *kobj, struct attribute *attr, char *buf)              	\
+(struct kobject *kobj, struct kobj_attribute *attr, char *buf)              	\
 {							\
 	return sprintf(buf, "%u\n", module##_get_##file_name());	\
 }
 
 #define store_one(file_name, module)				\
 static ssize_t store_##file_name				\
-(struct kobject *kobj, struct attribute *attr, const char *buf,size_t count)	\
+(struct kobject *kobj, struct kobj_attribute *attr, const char *buf,size_t count)	\
 {							\
 	unsigned int input; 					\
 	int ret; 						\
@@ -215,7 +215,7 @@ static struct attribute_group pkgstate_attr_group = {
 
 #define show_one_debug_data(file_name,module)					\
 static ssize_t show_##file_name						\
-(struct kobject *kobj, struct attribute *attr, char *buf)              \
+(struct kobject *kobj, struct kobj_attribute *attr, char *buf)              \
 {									\
 	return (module##_get_##file_name(buf));		\
 }
@@ -242,7 +242,7 @@ define_one_ro(cpuidle_data);
 
 #define show_one_force_state(file_name, module)					\
 static ssize_t show_##file_name						\
-(struct kobject *kobj, struct attribute *attr, char *buf)              \
+(struct kobject *kobj, struct kobj_attribute *attr, char *buf)              \
 {									\
 	return sprintf(buf, "%u\n", module##_get_forced_state());		\
 }
@@ -250,7 +250,7 @@ static ssize_t show_##file_name						\
 
 #define store_one_force_state(file_name, module)					\
 static ssize_t store_##file_name						\
-(struct kobject *kobj, struct attribute *attr, const char *buf,size_t count)              \
+(struct kobject *kobj, struct kobj_attribute *attr, const char *buf,size_t count)              \
 {									\
 	unsigned int input; \
 	int ret; \

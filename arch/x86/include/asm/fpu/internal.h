@@ -359,6 +359,14 @@ static inline void copy_xregs_to_kernel(struct xregs_state *xstate)
 /*
  * Restore processor xstate from xsave area.
  */
+#ifdef CONFIG_X86_EARLYMIC
+/* no XRSTOR; FP/SSE and the VPU block always travel together, the mask is ignored */
+static inline void copy_kernel_to_xregs(struct xregs_state *xstate, u64 mask)
+{
+	copy_kernel_to_fxregs(&xstate->i387);
+	WARN_ON_FPU(restore_vpu_checking(&xstate->vpu));
+}
+#else
 static inline void copy_kernel_to_xregs(struct xregs_state *xstate, u64 mask)
 {
 	u32 lmask = mask;
@@ -366,6 +374,7 @@ static inline void copy_kernel_to_xregs(struct xregs_state *xstate, u64 mask)
 
 	XSTATE_XRESTORE(xstate, lmask, hmask);
 }
+#endif
 
 /*
  * Save xstate to user space xsave area.
@@ -417,6 +426,16 @@ static inline int copy_user_to_xregs(struct xregs_state __user *buf, u64 mask)
  * Restore xstate from kernel space xsave area, return an error code instead of
  * an exception.
  */
+#ifdef CONFIG_X86_EARLYMIC
+static inline int copy_kernel_to_xregs_err(struct xregs_state *xstate, u64 mask)
+{
+	int err = copy_kernel_to_fxregs_err(&xstate->i387);
+
+	if (!err)
+		err = restore_vpu_checking(&xstate->vpu);
+	return err;
+}
+#else
 static inline int copy_kernel_to_xregs_err(struct xregs_state *xstate, u64 mask)
 {
 	u32 lmask = mask;
@@ -427,6 +446,7 @@ static inline int copy_kernel_to_xregs_err(struct xregs_state *xstate, u64 mask)
 
 	return err;
 }
+#endif
 
 /*
  * These must be called with preempt disabled. Returns
@@ -476,12 +496,9 @@ static inline void __copy_kernel_to_fpregs(union fpregs_state *fpstate, u64 mask
 {
 #ifdef CONFIG_X86_EARLYMIC
 	copy_kernel_to_fxregs(&fpstate->fxsave);
-#ifdef CONFIG_ML1OM
+	/* 5.2+: every register load comes through here (lazy load on return to
+	 * user, signal return, fpu__clear), so the mask registers ride along. */
 	WARN_ON_FPU(restore_vpu_checking(&fpstate->xsave.vpu));
-#else
-	/* Mask registers are reloaded separately (restore_mask_regs). */
-	WARN_ON_FPU(restore_vpu_checking_nomask(&fpstate->xsave.vpu));
-#endif
 	return;
 #endif
 	if (use_xsave()) {
@@ -515,14 +532,6 @@ static inline void copy_kernel_to_fpregs(union fpregs_state *fpstate)
 }
 
 extern int copy_fpstate_to_sigframe(void __user *buf, void __user *fp, int size);
-
-#ifdef CONFIG_MK1OM
-void restore_mask_regs(void);
-static inline int mic_restore_mask_regs(struct fpu *fpu)
-{
-	return __mic_restore_mask_regs(&fpu->state.xsave.vpu);
-}
-#endif
 
 /*
  * FPU context switch related helper methods:
