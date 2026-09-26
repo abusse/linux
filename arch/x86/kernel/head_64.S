@@ -110,7 +110,7 @@ startup_32:
 	movl	%eax, %cr4		# Enable PAE mode
 
 					# Setup trampoline 4 level pagetables
-	leal	(init_level4_pgt - r_base)(%edi), %eax
+	leal	(init_top_pgt - r_base)(%edi), %eax
 	movl	%eax, %cr3
 
 	/* Enable Long mode in EFER */
@@ -568,7 +568,7 @@ NEXT_PAGE(init_top_pgt)
  * provide the same static identity L3/L2 the Xen path uses (maps the first 1G).
  */
 NEXT_PAGE(level3_ident_pgt)
-	.quad	level2_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
+	.quad	level2_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE_NOENC
 	.fill	511, 8, 0
 NEXT_PAGE(level2_ident_pgt)
 	PMDS(0, __PAGE_KERNEL_IDENT_LARGE_EXEC, PTRS_PER_PMD)

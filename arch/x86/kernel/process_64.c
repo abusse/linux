@@ -393,6 +393,7 @@ start_thread_common(struct pt_regs *regs, unsigned long new_ip,
 	preempt_disable();
 	restore_mask_regs();
 	preempt_enable();
+#endif
 	force_iret();
 }
 
