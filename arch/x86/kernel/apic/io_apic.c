@@ -1963,7 +1963,7 @@ static struct irq_chip ioapic_ir_chip __read_mostly = {
 static void mask_sbox_irq(struct irq_data *data)
 {
 #ifdef CONFIG_MK1OM
-	void __iomem *icraddr = data->handler_data;
+	void __iomem *icraddr = irq_data_get_irq_handler_data(data);
 	u32 value = readl(icraddr);
 	value |= 1 << 16;
 	writel(value, icraddr);
@@ -1973,7 +1973,7 @@ static void mask_sbox_irq(struct irq_data *data)
 static void unmask_sbox_irq(struct irq_data *data)
 {
 #ifdef CONFIG_MK1OM
-	void __iomem *icraddr = data->handler_data;
+	void __iomem *icraddr = irq_data_get_irq_handler_data(data);
 	u32 value = readl(icraddr);
 	value &= ~(1 << 16);
 	writel(value, icraddr);
@@ -1985,7 +1985,6 @@ static struct irq_chip sbox_chip = {
 	.irq_unmask	= unmask_sbox_irq,
 	.irq_mask	= mask_sbox_irq,
 	.irq_ack	= apic_ack_edge,
-	.irq_retrigger	= apic_retrigger_irq,
 };
 
 static void setup_sbox_irq(int irq, int i)
