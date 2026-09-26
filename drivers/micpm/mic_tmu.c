@@ -458,7 +458,7 @@ static inline int mic_pmevent_init(void)
 		dprintk("Dietemp %d = %x \n",i,mic_read_dietemp(i));
 	}
 	/* Setup interrupt handler	*/
-	if(request_irq(K1OM_TMU_INTERRUPT, tmu_interrupt_handler, IRQF_DISABLED, "TMU",NULL )) {
+	if(request_irq(K1OM_TMU_INTERRUPT, tmu_interrupt_handler, 0, "TMU",NULL )) {
 		printk("Failed to set up TMU interrupt handler");
 		return 1;
 	}
