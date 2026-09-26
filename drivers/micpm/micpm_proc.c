@@ -81,11 +81,11 @@ static int object##stats_open(struct inode *inode, struct file *filp) \
 { \
 	return single_open(filp, object##stats_show, NULL); \
 } \
-static const struct file_operations object##stats_fops = { \
-	.open		= object##stats_open, \
-	.read		= seq_read, \
-	.llseek		= seq_lseek, \
-	.release	= single_release, \
+static const struct proc_ops object##stats_fops = { \
+	.proc_open	= object##stats_open, \
+	.proc_read	= seq_read, \
+	.proc_lseek	= seq_lseek, \
+	.proc_release	= single_release, \
 };
 
 #ifdef CONFIG_MIC_CPUIDLE

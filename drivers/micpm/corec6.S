@@ -52,10 +52,10 @@
  	 
 .code64
 
-ENTRY(pkgstate_exit)	#PC6 exit trampoline enters kernel here.
+SYM_ENTRY(pkgstate_exit, SYM_L_GLOBAL, SYM_A_ALIGN)	#PC6 exit trampoline enters kernel here.
 	movq	$MIC_STATE_PC6, %r12 
 	jmp	common
-ENTRY(cc6_exit_64)
+SYM_ENTRY(cc6_exit_64, SYM_L_GLOBAL, SYM_A_ALIGN)
 	/*
 	 * At this point the CPU runs in 64bit mode CS.L = 1 CS.D = 1,
 	 * and someone has loaded a mapped page table.
@@ -177,9 +177,9 @@ bad_apicid:
 	popq	%rax	#return value tells the caller if we cane through the
 			#CC6 trampoline or the PC6.
 	ret		
-ENDPROC(cc6_exit_64)
+SYM_FUNC_END(cc6_exit_64)
 
-ENTRY(do_cc6entry_lowlevel)
+SYM_ENTRY(do_cc6entry_lowlevel, SYM_L_GLOBAL, SYM_A_ALIGN)
 	movq	%rdi,%rax		/* Context struct ptr passed as parameter	*/
 	movq	%rsp, pt_regs_sp(%rax)
 	movq	%rbp, pt_regs_bp(%rax)
@@ -209,10 +209,10 @@ ENTRY(do_cc6entry_lowlevel)
 */
 	movq	$MIC_STATE_C1,%rax
 	ret
-ENDPROC(do_cc6entry_lowlevel)
+SYM_FUNC_END(do_cc6entry_lowlevel)
 	.data
 	.align 16
-ENTRY(c6_gdt_table)
+SYM_ENTRY(c6_gdt_table, SYM_L_GLOBAL, SYM_A_ALIGN)
         .quad   0x0000000000000000      /* NULL descriptor */
         .quad   0x0                     /* unused */
         .quad   0x00af9a000000ffff      /* __KERNEL_CS */

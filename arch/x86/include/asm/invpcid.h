@@ -13,8 +13,13 @@ static inline void __invpcid(unsigned long pcid, unsigned long addr,
 	 * mappings, we don't want the compiler to reorder any subsequent
 	 * memory accesses before the TLB flush.
 	 */
+#ifdef CONFIG_X86_EARLYMIC
+	/* no INVPCID on KNC; never reached */
+	(void)desc;
+#else
 	asm volatile("invpcid %[desc], %[type]"
 		     :: [desc] "m" (desc), [type] "r" (type) : "memory");
+#endif
 }
 
 #define INVPCID_TYPE_INDIV_ADDR		0

@@ -237,7 +237,7 @@ config X86
 	select HAVE_FUNCTION_ARG_ACCESS_API
 	select HAVE_SOFTIRQ_ON_OWN_STACK
 	select HAVE_STACKPROTECTOR		if CC_HAS_SANE_STACKPROTECTOR
-	select HAVE_STACK_VALIDATION		if X86_64
+	select HAVE_STACK_VALIDATION		if X86_64 && !X86_EARLYMIC	# objtool cannot decode k1om VPU code
 	select HAVE_STATIC_CALL
 	select HAVE_STATIC_CALL_INLINE		if HAVE_STACK_VALIDATION
 	select HAVE_PREEMPT_DYNAMIC
@@ -563,14 +563,14 @@ config X86_MICPCI
 	select VIRTIO_RING
 	select X86_LOCAL_APIC
 	select MMU_NOTIFIER
-	---help---
+	help
 	  Support for Intel Many Integrated Core (Intel MIC) SoC's in a
 	  PCIe coprocessor form factor.
 
 config X86_MIC_EMULATION
 	bool "EMULATION"
 	depends on X86_MICPCI
-	---help---
+	help
 	  Select this to enable hacks for running on emulated silicon
 	  instead of the real thing. Useless unless you work for Intel.
 
@@ -578,7 +578,7 @@ config K1OM_TEST
 	bool "Test K1OM power management on L1OM"
 	depends on ML1OM
 	depends on MIC_PM
-	---help---
+	help
 	  Select this if you want to test MK1OM PM code on ML1OM by
 	  using some unused ML1OM H/W registers as stand-ins for the
 	  relevant K1OM registers. This is for testing purposes only.
@@ -1684,7 +1684,7 @@ config VECTOR_MEMCPY
 	bool
 	depends on MK1OM && PAGE_CACHE_HIGH_ORDER_PAGE_ALLOC
 	default y
-	---help---
+	help
 	Memcopy that uses streaming stores instructions with vector registers.
 
 config HIGHPTE
@@ -2873,7 +2873,7 @@ config HAVE_ATOMIC_IOMAP
 config SPINLOCK_SCALABLE
 	def_bool y
 	depends on MK1OM
-	---help---
+	help
 	  This option enables scalable ticket spin locks in the
 	  kernel.  This is recommended for better locking
 	  performance on multi-threaded systems.  When there is
