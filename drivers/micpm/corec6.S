@@ -75,7 +75,7 @@ ENTRY(cc6_exit_64)
 	movq	$MIC_STATE_C6, %r12
 common:
 	/* Setup early boot stage 4 level pagetables. */
-	movq	$(init_level4_pgt - __START_KERNEL_map), %rax
+	movq	$(init_top_pgt - __START_KERNEL_map), %rax
 	addq	phys_base(%rip), %rax
 	movq	%rax, %cr3
 
