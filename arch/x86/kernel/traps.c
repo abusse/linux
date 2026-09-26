@@ -470,6 +470,9 @@ dotraplinkage void do_bounds(struct pt_regs *regs, long error_code)
 		/* The exception is not from Intel MPX */
 		goto exit_trap;
 	}
+#ifdef CONFIG_X86_EARLYMIC
+	goto exit_trap;	/* KNC has no MPX; XSTATE_BNDCSR aliases XSTATE_ZMM */
+#else
 
 	/*
 	 * We need to look at BNDSTATUS to resolve this exception.
@@ -516,6 +519,7 @@ dotraplinkage void do_bounds(struct pt_regs *regs, long error_code)
 	default:
 		die("bounds", regs, error_code);
 	}
+#endif
 
 	return;
 
