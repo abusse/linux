@@ -54,6 +54,9 @@
 #include <asm/mpspec.h>
 #include <asm/setup.h>
 #include <asm/apic.h>
+#ifdef CONFIG_X86_EARLYMIC
+#include <asm/mic_def.h>
+#endif
 
 #ifdef CONFIG_X86_LOCAL_APIC
 static unsigned long sfi_lapic_addr __initdata = APIC_DEFAULT_PHYS_BASE;
@@ -115,6 +118,10 @@ static int __init sfi_parse_ioapic(struct sfi_table_header *table)
 		mp_register_ioapic(i, pentry->phys_addr, gsi_top, &cfg);
 		pentry++;
 	}
+#ifdef CONFIG_X86_EARLYMIC
+	/* 4.15+: setup_IO_APIC() runs from late_time_init, before smp_prepare_cpus */
+	mic_construct_default_ioirq_mptable(0);
+#endif
 
 	WARN(pic_mode, KERN_WARNING
 		"SFI: pic_mod shouldn't be 1 when IOAPIC table is present\n");

@@ -1391,9 +1391,15 @@ static bool __init determine_cpu_tsc_frequencies(bool early)
 		cpu_khz = x86_platform.calibrate_cpu();
 		tsc_khz = x86_platform.calibrate_tsc();
 	} else {
+#ifdef CONFIG_X86_EARLYMIC
+		/* no PIT/HPET/PM timer; the SBOX reference is mappable only now */
+		cpu_khz = x86_platform.calibrate_cpu();
+		tsc_khz = x86_platform.calibrate_tsc();
+#else
 		/* We should not be here with non-native cpu calibration */
 		WARN_ON(x86_platform.calibrate_cpu != native_calibrate_cpu);
 		cpu_khz = pit_hpet_ptimer_calibrate_cpu();
+#endif
 	}
 
 	/*
