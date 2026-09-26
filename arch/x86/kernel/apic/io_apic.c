@@ -2927,6 +2927,10 @@ int mp_register_ioapic(int id, u64 address, u32 gsi_base,
 	 * and to prevent reprogramming of IOAPIC pins (PCI GSIs).
 	 */
 	entries = io_apic_get_redir_entries(idx);
+#ifdef CONFIG_X86_EARLYMIC
+	/* The version register under-reports: KNC routes 25 SBOX sources. */
+	entries = MIC_NUM_IOAPIC_ENTRIES;
+#endif
 	gsi_end = gsi_base + entries - 1;
 	for_each_ioapic(ioapic) {
 		gsi_cfg = mp_ioapic_gsi_routing(ioapic);
