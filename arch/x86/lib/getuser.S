@@ -35,7 +35,11 @@
 #include <asm/smap.h>
 #include <asm/export.h>
 
+#ifdef CONFIG_X86_EARLYMIC
+#define ASM_BARRIER_NOSPEC	/* in-order core, no lfence in the assembler */
+#else
 #define ASM_BARRIER_NOSPEC ALTERNATIVE "", "lfence", X86_FEATURE_LFENCE_RDTSC
+#endif
 
 #ifdef CONFIG_X86_5LEVEL
 #define LOAD_TASK_SIZE_MINUS_N(n) \

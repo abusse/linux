@@ -1334,7 +1334,7 @@ static int mic_cpu_exit(struct cpufreq_policy *policy)
  * Limit must be within this model's frequency range at least one
  * border included.
  */
-static int mic_verify(struct cpufreq_policy *policy)
+static int mic_verify(struct cpufreq_policy_data *policy)
 {
 	return cpufreq_frequency_table_verify(policy, freq_data.freq_table);
 }

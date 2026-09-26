@@ -37,6 +37,11 @@
 #include <asm/setup.h>	/* For COMMAND_LINE_SIZE */
 #undef _SETUP
 
+#ifdef CONFIG_X86_EARLYMIC
+/* the decompressor uses native_set_pte(); no icache maintenance needed here */
+void mic_flush_icache_nx(pte_t *ptep, pte_t pte) { }
+#endif
+
 extern unsigned long get_cmd_line_ptr(void);
 
 /* Used by PAGE_KERN* macros: */
