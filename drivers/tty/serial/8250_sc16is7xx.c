@@ -22,6 +22,9 @@
 * is granted herein.
 */
 
+#include <linux/serial_reg.h>
+#include <linux/moduleparam.h>
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
 #include <linux/console.h>
@@ -57,43 +60,72 @@ static char *test_regs_rd[] = {
 };
 #endif
 
+/*
+ * The 8250 core calls these with the port spinlock held (IRQs off), so the
+ * i2c core only trylocks the adapter and returns -EAGAIN whenever another
+ * context owns it. Dropping such an access silently corrupts 8250 state
+ * (e.g. a lost IER write stalls TX for good), so retry for a bounded time:
+ * a PIO transfer on another CPU finishes in a few hundred microseconds.
+ * The bound keeps a same-CPU holder from deadlocking us.
+ */
+#define SC16IS_RETRIES	250	/* x 20 us = 5 ms */
+
+static int sc16is_retries, sc16is_rd_fail, sc16is_wr_fail;
+static int sc16is_rd_timeout, sc16is_wr_timeout;
+module_param_named(retries, sc16is_retries, int, 0444);
+module_param_named(rd_fail, sc16is_rd_fail, int, 0444);
+module_param_named(wr_fail, sc16is_wr_fail, int, 0444);
+module_param_named(rd_timeout, sc16is_rd_timeout, int, 0444);
+module_param_named(wr_timeout, sc16is_wr_timeout, int, 0444);
+
 unsigned int sc16is_serial_in(struct uart_port *port, int offset)
 {
 	struct i2c_client *client = (struct i2c_client *)port->private_data;
-	s32 value = -EAGAIN;
+	int tries = SC16IS_RETRIES;
+	s32 value;
 
-	do {
-		value = i2c_smbus_read_byte_data(client, (u8)offset << port->regshift);
-	} while (0);
-	//} while (value == -EAGAIN);
-
-	if (value < 0) {
-		//panic("serial_in bad %s (%d), %d\n", test_regs_rd[offset], offset, value);
-		//printk(KERN_INFO "serial_in bad %s (%d), %d\n", test_regs_rd[offset], offset, value);
-	} else {
-		//printk(KERN_INFO "serial_in %s (%d), 0x%x\n", test_regs_rd[offset], offset, value);
+	while ((value = i2c_smbus_read_byte_data(client,
+				(u8)offset << port->regshift)) == -EAGAIN &&
+	       tries--) {
+		sc16is_retries++;
+		udelay(20);
 	}
-	if (value == (-EAGAIN) && offset == 2)
-		return 1;
 
-	return (value & 0xFF);
+	if (value >= 0)
+		return value & 0xFF;
+
+	if (value == -EAGAIN)
+		sc16is_rd_timeout++;
+	else
+		sc16is_rd_fail++;
+	/* Harmless stand-ins instead of the errno's low byte. */
+	switch (offset) {
+	case UART_IIR:
+		return UART_IIR_NO_INT;
+	case UART_LSR:
+		return UART_LSR_THRE | UART_LSR_TEMT;
+	default:
+		return 0;
+	}
 }
 
 void sc16is_serial_out(struct uart_port *port, int offset, int value)
 {
 	struct i2c_client *client = (struct i2c_client *)port->private_data;
-	s32 val = -EAGAIN;
+	int tries = SC16IS_RETRIES;
+	s32 val;
 
-	do {
-		val = i2c_smbus_write_byte_data(client, (u8)offset << port->regshift, (u8)value);
-	} while(0);
-	//	} while(val == -EAGAIN);
-
-	if (val < 0)   {
-		//panic("serial_out %s (%d) = 0x%x\n", test_regs_wr[offset], offset, value);
-		//printk(KERN_INFO "serial_out %s (%d) = 0x%x\n", test_regs_wr[offset], offset, value);
+	while ((val = i2c_smbus_write_byte_data(client,
+				(u8)offset << port->regshift, (u8)value)) == -EAGAIN &&
+	       tries--) {
+		sc16is_retries++;
+		udelay(20);
 	}
-	//printk(KERN_INFO "serial_out %s (%d) = 0x%x\n", test_regs_wr[offset], offset, value);
+
+	if (val == -EAGAIN)
+		sc16is_wr_timeout++;
+	else if (val < 0)
+		sc16is_wr_fail++;
 }
 #endif
 
@@ -106,6 +138,12 @@ static int sc16is7xx_probe(struct i2c_client *client,
 	struct uart_port port;
 	struct uart_8250_port up;
 	int error = 0;
+
+	/* i2c-pxa instantiates both possible addresses; skip the empty one. */
+	if (i2c_smbus_write_byte_data(client, UART_SCR << 3, 0x5a) < 0 ||
+	    i2c_smbus_read_byte_data(client, UART_SCR << 3) != 0x5a)
+		return -ENODEV;
+
 	memset(&port, 0, sizeof(struct uart_port));
 	/* Setup the port data structure */
 #ifdef SC16IS_COMPILETIME
