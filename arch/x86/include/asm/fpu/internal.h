@@ -328,6 +328,14 @@ static inline void os_xsave(struct xregs_state *xstate)
  *
  * Uses XRSTORS when XSAVES is used, XRSTOR otherwise.
  */
+#ifdef CONFIG_X86_EARLYMIC
+/* no XRSTOR; FP/SSE and the VPU block always travel together, the mask is ignored */
+static inline void os_xrstor(struct xregs_state *xstate, u64 mask)
+{
+	fxrstor(&xstate->i387);
+	WARN_ON_FPU(restore_vpu_checking(&xstate->vpu));
+}
+#else
 static inline void os_xrstor(struct xregs_state *xstate, u64 mask)
 {
 	u32 lmask = mask;
@@ -335,6 +343,7 @@ static inline void os_xrstor(struct xregs_state *xstate, u64 mask)
 
 	XSTATE_XRESTORE(xstate, lmask, hmask);
 }
+#endif
 
 /*
  * Save xstate to user space xsave area.
@@ -394,6 +403,16 @@ static inline int xrstor_from_user_sigframe(struct xregs_state __user *buf, u64 
  * Restore xstate from kernel space xsave area, return an error code instead of
  * an exception.
  */
+#ifdef CONFIG_X86_EARLYMIC
+static inline int os_xrstor_safe(struct xregs_state *xstate, u64 mask)
+{
+	int err = fxrstor_safe(&xstate->i387);
+
+	if (!err)
+		err = restore_vpu_checking(&xstate->vpu);
+	return err;
+}
+#else
 static inline int os_xrstor_safe(struct xregs_state *xstate, u64 mask)
 {
 	u32 lmask = mask;
@@ -407,6 +426,7 @@ static inline int os_xrstor_safe(struct xregs_state *xstate, u64 mask)
 
 	return err;
 }
+#endif
 
 extern void __restore_fpregs_from_fpstate(union fpregs_state *fpstate, u64 mask);
 
@@ -416,14 +436,6 @@ static inline void restore_fpregs_from_fpstate(union fpregs_state *fpstate)
 }
 
 extern int copy_fpstate_to_sigframe(void __user *buf, void __user *fp, int size);
-
-#ifdef CONFIG_MK1OM
-void restore_mask_regs(void);
-static inline int mic_restore_mask_regs(struct fpu *fpu)
-{
-	return __mic_restore_mask_regs(&fpu->state.xsave.vpu);
-}
-#endif
 
 /*
  * FPU context switch related helper methods:
