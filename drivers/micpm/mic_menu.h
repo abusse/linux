@@ -78,7 +78,7 @@ struct menu_device {
    of the monitoring time window.
 */     
 struct pc3record {
-	cputime64_t usertime;
+	u64 usertime;
 	ktime_t tstamp;
 	atomic_t pc3_disable;
 };	
