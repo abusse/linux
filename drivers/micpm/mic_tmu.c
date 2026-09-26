@@ -99,7 +99,6 @@
 static struct delayed_work micevent_work;
 static struct workqueue_struct *micevent_wq;
 
-static int 	pstate;
 static int 	pstatedriver;
 
 #ifdef	USE_SW_THRESHOLDS	/* Only if we are using SW thermal
@@ -132,6 +131,7 @@ static spinlock_t teventlock;	//Turbo event lock
 static spinlock_t miceventlock;
 static spinlock_t tmu_lock;
 static int ProcHotAsserted;
+static struct freq_qos_request tmu_max_req;
 static int maxfreq;		//At any time this is the maximum core freq (kHz) 
 //enforced in the policy
 static int tinited;
@@ -684,21 +684,16 @@ void mic_event_set_turbostate(int state)
 /* Change the freq governor policy to set the max_freq to freq	*/
 static void mic_change_policy(unsigned int freq)
 {
-	struct cpufreq_policy policy;
-	int cpu = smp_processor_id();
-
 	if(maxfreq!=freq) {
 		printk("Setting maxfreq to %d \n",freq);
 		maxfreq=freq;
 		smp_wmb();
-		if (!cpufreq_get_policy(&policy, cpu)) {
-			cpufreq_update_policy(cpu);
-			dprintk("updated cpufreq policy\n");
-		}
+		if (freq_qos_request_active(&tmu_max_req))
+			freq_qos_update_request(&tmu_max_req, maxfreq);
 		else
 			printk(KERN_ERR"Failed to update cpufreq policy\n");
-	}		
-}			
+	}
+}
 
 static int bh_procHot(unsigned int *freq)
 {
@@ -1027,30 +1022,21 @@ int event_worker_init(void)
 	return 0;
 }	
 
+/* 5.3+: policy limits are freq-QoS requests (CPUFREQ_ADJUST is gone) */
 static int micevent_cpufreq_notifier(struct notifier_block *nb,
 					 unsigned long event, void *data)
 {
 	struct cpufreq_policy *policy = data;
-	
-	switch(event) {
-	case	CPUFREQ_ADJUST:
-			printk("micevent_cpufreq_notifier entered for CPUFREQ_ADJUST\n");
-			policy->max = maxfreq;
-			break;
-	case	CPUFREQ_NOTIFY:			
-			dprintk("micevent_cpufreq_notifier entered for CPUFREQ_NOTIFY\n");
-			if(strcmp(policy->governor->name,"userspace") == 0) {
-				dprintk("userspace governor chosen. turning off pstates\n");
-				pstate = 0;
-			}	
-			else 
-				pstate=1;
-			break;
-					
-									 
+
+	if (event == CPUFREQ_CREATE_POLICY) {
+		if (freq_qos_add_request(&policy->constraints, &tmu_max_req, FREQ_QOS_MAX,
+					 maxfreq ? maxfreq : FREQ_QOS_MAX_DEFAULT_VALUE) < 0)
+			printk(KERN_ERR "micevent: freq_qos max request failed\n");
+	} else if (event == CPUFREQ_REMOVE_POLICY) {
+		freq_qos_remove_request(&tmu_max_req);
 	}
 	return 0;
-}	
+}
 
 
 static struct notifier_block micevent_cpufreq_notifier_block = {

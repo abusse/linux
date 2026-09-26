@@ -36,11 +36,15 @@ static inline int cpu_has_vmx(void)
  * on the CPU previously. Only call this function if you know VMX
  * is enabled.
  */
+#ifdef CONFIG_X86_EARLYMIC
+static inline void cpu_vmxoff(void) { }
+#else
 static inline void cpu_vmxoff(void)
 {
 	asm volatile ("vmxoff");
 	cr4_clear_bits(X86_CR4_VMXE);
 }
+#endif
 
 static inline int cpu_vmx_enabled(void)
 {

@@ -319,19 +319,6 @@ void fpu__prepare_write(struct fpu *fpu)
 }
 
 /*
-#ifdef CONFIG_MK1OM
-/* KNC: reload the current task's vector mask registers (k0-k7) from its fpstate. */
-void restore_mask_regs(void)
-{
-	struct fpu *fpu = &current->thread.fpu;
-
-	if (unlikely(mic_restore_mask_regs(fpu)))
-		force_sig(SIGSEGV);
-}
-EXPORT_SYMBOL_GPL(restore_mask_regs);
-#endif
-
-/*
  * Drops current FPU state: deactivates the fpregs and
  * the fpstate. NOTE: it still leaves previous contents
  * in the fpregs in the eager-FPU case.

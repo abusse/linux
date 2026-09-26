@@ -74,6 +74,20 @@ static inline void restore_IO_APIC_setup(void *e) { restore_ioapic_entries(); }
 #include <asm/suspend.h>
 #include <asm/debugreg.h>
 #include <asm/timer.h>
+
+/* read_cr8()/write_cr8() left the kernel in 5.3 */
+static inline unsigned long knc_read_cr8(void)
+{
+	unsigned long cr8;
+
+	asm volatile("movq %%cr8,%0" : "=r" (cr8));
+	return cr8;
+}
+
+static inline void knc_write_cr8(unsigned long val)
+{
+	asm volatile("movq %0,%%cr8" :: "r" (val) : "memory");
+}
 #include <linux/delay.h>
 #include <asm/mic/mic_common.h>
 #include "mic_pm_card.h"
@@ -390,7 +404,7 @@ static void mic_save_processor_state(int apicid)
 	ctxt->cr2 = read_cr2();
 	ctxt->cr3 = __read_cr3();
 	ctxt->cr4 = __read_cr4();
-	ctxt->cr8 = read_cr8();
+	ctxt->cr8 = knc_read_cr8();
 	/*
 	 * MCA related per-CPU MSRs
 	 */
@@ -419,7 +433,7 @@ void mic_restore_processor_state(struct cc6_saved_context *ctxt)
 	 */
 	/* cr4 was introduced in the Pentium CPU */
 	wrmsrl(MSR_EFER, ctxt->efer);
-	write_cr8(ctxt->cr8);
+	knc_write_cr8(ctxt->cr8);
 	/* cr0 .. cr4 saved by caller */
 	/*
 	 * now restore the descriptor tables to their proper values

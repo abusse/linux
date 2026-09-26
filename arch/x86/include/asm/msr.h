@@ -213,6 +213,13 @@ static __always_inline unsigned long long rdtsc(void)
  * be impossible to observe non-monotonic rdtsc_unordered() behavior
  * across multiple CPUs as long as the TSC is synced.
  */
+#ifdef CONFIG_X86_EARLYMIC
+/* in-order core; the assembler has neither lfence nor rdtscp */
+static __always_inline unsigned long long rdtsc_ordered(void)
+{
+	return rdtsc();
+}
+#else
 static __always_inline unsigned long long rdtsc_ordered(void)
 {
 	DECLARE_ARGS(val, low, high);
@@ -240,6 +247,7 @@ static __always_inline unsigned long long rdtsc_ordered(void)
 
 	return EAX_EDX_VAL(val, low, high);
 }
+#endif
 
 static inline unsigned long long native_read_pmc(int counter)
 {

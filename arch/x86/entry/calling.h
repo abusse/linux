@@ -326,12 +326,20 @@ For 32-bit we have the following conventions - kernel is built with
  * to prevent the swapgs from getting speculatively skipped when coming from
  * user space.
  */
+#ifdef CONFIG_X86_EARLYMIC
+/* in-order core, no lfence in the assembler */
+.macro FENCE_SWAPGS_USER_ENTRY
+.endm
+.macro FENCE_SWAPGS_KERNEL_ENTRY
+.endm
+#else
 .macro FENCE_SWAPGS_USER_ENTRY
 	ALTERNATIVE "", "lfence", X86_FEATURE_FENCE_SWAPGS_USER
 .endm
 .macro FENCE_SWAPGS_KERNEL_ENTRY
 	ALTERNATIVE "", "lfence", X86_FEATURE_FENCE_SWAPGS_KERNEL
 .endm
+#endif
 
 .macro STACKLEAK_ERASE_NOCLOBBER
 #ifdef CONFIG_GCC_PLUGIN_STACKLEAK
