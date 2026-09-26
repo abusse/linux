@@ -107,7 +107,7 @@ static inline unsigned long test_etc(int count)
 
 #endif
 												
-cycle_t mic_etc_read(struct clocksource *cs);
+u64 mic_etc_read(struct clocksource *cs);
 EXPORT_SYMBOL_GPL(mic_etc_read);
 
 /*
@@ -149,10 +149,10 @@ static unsigned long etc_readl(void)
  *    mic_etc_read	- Read a 64-bit count from ETC which is made up of
  *    two 32 bit counts.		  
  */
-cycle_t mic_etc_read(struct clocksource *cs)
+u64 mic_etc_read(struct clocksource *cs)
 {
 
-	return((cycle_t)etc_readl() >> 5);
+	return((u64)etc_readl() >> 5);
 }
 
 /*

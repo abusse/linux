@@ -97,7 +97,7 @@ startup_32:
 	movl	%eax, %cr4		# Enable PAE mode
 
 					# Setup trampoline 4 level pagetables
-	leal	(init_level4_pgt - r_base)(%edi), %eax
+	leal	(init_top_pgt - r_base)(%edi), %eax
 	movl	%eax, %cr3
 
 	/* Enable Long mode in EFER */

@@ -34,6 +34,8 @@
 
 #include <linux/kernel.h>
 #include <asm/fpu/internal.h>
+#include <linux/sched/clock.h>
+#include <linux/sched/idle.h>
 #include <asm/mmu_context.h>
 #include <asm/io_apic.h>
 /* Package-state (PC3/PC6) helpers ported to Linux 3.4: */
@@ -71,7 +73,6 @@ static inline void restore_IO_APIC_setup(void *e) { restore_ioapic_entries(); }
 #include <asm/debugreg.h>
 #include <asm/timer.h>
 #include <linux/delay.h>
-#include <asm/idle.h>
 #include <asm/mic/mic_common.h>
 #include "mic_pm_card.h"
 #include "micpm_common.h"
@@ -347,7 +348,7 @@ static void fix_processor_context(void)
 				 * similar stupidity.
 				 */
 
-	get_cpu_gdt_table(cpu)[GDT_ENTRY_TSS].type = 9;
+	get_cpu_gdt_rw(cpu)[GDT_ENTRY_TSS].type = 9;
 
 	syscall_init();		/* This sets MSR_*STAR and related */
 	load_TR_desc();		/* This does ltr */
@@ -384,7 +385,7 @@ static void mic_save_processor_state(int apicid)
 	 */
 	ctxt->cr0 = read_cr0();
 	ctxt->cr2 = read_cr2();
-	ctxt->cr3 = read_cr3();
+	ctxt->cr3 = __read_cr3();
 	ctxt->cr4 = __read_cr4();
 	ctxt->cr8 = read_cr8();
 	/*
@@ -1364,7 +1365,7 @@ static int mic_idle_enter_pc3(struct cpuidle_device *dev,
 			spin_unlock_irqrestore(&idlelock, flags);
 		}
 	}
-	sched_clock_idle_wakeup_event(0);
+	sched_clock_idle_wakeup_event();
 	if(per_cpu(timer_stopped,cpu)) {
 		atomic_dec_return(&stopcnt);
 		per_cpu(timer_stopped,cpu)=0;
@@ -1387,7 +1388,7 @@ bail:
 **/
 static int mic_setup_driver_states(void)
 {
-	int i, count = CPUIDLE_DRIVER_STATE_START, k;
+	int i, count = 1, k;	/* states[0] is the POLL state */
 	struct cpuidle_state *state;
 	int max_cstate = MAX_KNC_CSTATES;
 	struct mic_cpuidle_states *cx;
@@ -1396,7 +1397,7 @@ static int mic_setup_driver_states(void)
 		mic_cpuidle_driver.states[i].name[0] = '\0';
 		mic_cpuidle_driver.states[i].desc[0] = '\0';
 	}
-	for (i = CPUIDLE_DRIVER_STATE_START, k = 1; k <= max_cstate; k++) {
+	for (i = 1, k = 1; k <= max_cstate; k++) {
 		state = &mic_cpuidle_driver.states[i];
 		state->flags = 0;
 		switch (k) {
@@ -1473,6 +1474,7 @@ int __init mic_cpuidle_init(int cc6, int pc3, int pc6)
 	}
 
 	dprintk("Registering cpuidle driver\n");
+	cpuidle_poll_state_init(&mic_cpuidle_driver);
 	result = cpuidle_register_driver(&mic_cpuidle_driver);
 	if (result < 0) {
 		printk(KERN_DEBUG PREFIX "Failed to register cpuidle driver\n");

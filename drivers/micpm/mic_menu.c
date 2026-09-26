@@ -243,6 +243,7 @@ unsigned int mic_menu_get_pc3_inactivity(void)
 	return pc3_inactivity;
 }	
 
+#include <linux/sched/loadavg.h>
 #define LOAD_INT(x) ((x) >> FSHIFT)
 #define LOAD_FRAC(x) LOAD_INT(((x) & (FIXED_1-1)) * 100)
 
@@ -327,7 +328,7 @@ static u64 div_round64(u64 dividend, u32 divisor)
 static int mic_test_pc3ready(int cpu)
 {
 	struct pc3record *pr = this_cpu_ptr(&pc3data);
-	cputime64_t user = kcpustat_cpu(cpu).cpustat[CPUTIME_USER] + kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
+	u64 user = kcpustat_cpu(cpu).cpustat[CPUTIME_USER] + kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
 	
 	if(!mic_pkgstate_ready || !pc3policy)
 		return 0;
@@ -427,11 +428,11 @@ static int menu_select(struct cpuidle_driver *drv, struct cpuidle_device *dev)
 	 * unless the timer is happening really really soon.
 	 */
 	if (data->expected_us > 5)
-		data->last_state_idx = CPUIDLE_DRIVER_STATE_START;
+		data->last_state_idx = 1;	/* states[0] is POLL */
 
 
 	/* find the deepest idle state that satisfies our constraints */
-	for (i = CPUIDLE_DRIVER_STATE_START; i < drv->state_count; i++) {
+	for (i = 1; i < drv->state_count; i++) {
 		struct cpuidle_state *s = &drv->states[i];
 
 		if (s->target_residency > data->predicted_us)
@@ -556,7 +557,6 @@ static struct cpuidle_governor mic_menu_governor = {
 	.enable =	menu_enable_device,
 	.select =	menu_select,
 	.reflect =	menu_reflect,
-	.owner =	THIS_MODULE,
 };
 
 
