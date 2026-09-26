@@ -79,11 +79,6 @@ struct mm_struct;
 void set_pte_vaddr_p4d(p4d_t *p4d_page, unsigned long vaddr, pte_t new_pte);
 void set_pte_vaddr_pud(pud_t *pud_page, unsigned long vaddr, pte_t new_pte);
 
-static inline void native_set_pte(pte_t *ptep, pte_t pte)
-{
-	WRITE_ONCE(*ptep, pte);
-}
-
 static inline void native_pte_clear(struct mm_struct *mm, unsigned long addr,
 				    pte_t *ptep)
 {
@@ -103,7 +98,7 @@ void mic_flush_icache_nx(pte_t *ptep, pte_t pte);
 
 static inline void _native_set_pte(pte_t *ptep, pte_t pte)
 {
-	*ptep = pte;
+	WRITE_ONCE(*ptep, pte);
 }
 
 static inline void native_set_pte(pte_t *ptep, pte_t pte)

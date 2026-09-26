@@ -212,15 +212,15 @@ config INSTRUCTION_DECODER
 config OUTPUT_FORMAT
 	string
 	default "elf32-i386" if X86_32
-	default "elf64-l1om" if ARCH = "l1om"
-	default "elf64-k1om" if ARCH = "k1om"
+	default "elf64-l1om" if "$(ARCH)" = "l1om"
+	default "elf64-k1om" if "$(ARCH)" = "k1om"
 	default "elf64-x86-64" if X86_64
 
 config ARCH_DEFCONFIG
 	string
 	default "arch/x86/configs/i386_defconfig" if X86_32
-	default "arch/x86/configs/l1om_defconfig" if ARCH = "l1om"
-	default "arch/x86/configs/k1om_defconfig" if ARCH = "k1om"
+	default "arch/x86/configs/l1om_defconfig" if "$(ARCH)" = "l1om"
+	default "arch/x86/configs/k1om_defconfig" if "$(ARCH)" = "k1om"
 	default "arch/x86/configs/x86_64_defconfig" if X86_64
 
 config LOCKDEP_SUPPORT
@@ -528,8 +528,8 @@ config X86_MICPCI
 	bool "Intel MIC PCIe coprocessor"
 	depends on X86_64
 	depends on X86_EXTENDED_PLATFORM
-	select ML1OM if ARCH = "l1om"
-	select MK1OM if ARCH = "k1om"
+	select ML1OM if "$(ARCH)" = "l1om"
+	select MK1OM if "$(ARCH)" = "k1om"
 	select VIRTIO			# mic_virtblk (out-of-tree) needs the virtio core
 	select VIRTIO_RING
 	select X86_LOCAL_APIC
