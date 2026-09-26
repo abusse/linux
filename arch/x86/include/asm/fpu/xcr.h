@@ -5,6 +5,11 @@
 #define XCR_XFEATURE_ENABLED_MASK	0x00000000
 #define XCR_XFEATURE_IN_USE_MASK	0x00000001
 
+#ifdef CONFIG_X86_EARLYMIC
+/* no XCR0 on KNC (and no such mnemonics in the k1om assembler); never reached */
+static __always_inline u64 xgetbv(u32 index) { return 0; }
+static __always_inline void xsetbv(u32 index, u64 value) { }
+#else
 static __always_inline u64 xgetbv(u32 index)
 {
 	u32 eax, edx;
@@ -20,6 +25,7 @@ static inline void xsetbv(u32 index, u64 value)
 
 	asm volatile("xsetbv" :: "a" (eax), "d" (edx), "c" (index));
 }
+#endif
 
 /*
  * Return a mask of xfeatures which are currently being tracked

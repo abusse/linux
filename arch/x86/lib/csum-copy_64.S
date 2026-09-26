@@ -93,7 +93,6 @@ SYM_FUNC_START(csum_partial_copy_generic)
 	_ASM_EXTABLE(30b, 2f)
 	prefetcht0 5*64(%rdi)
 #endif
-#endif
 2:
 	adcq  %rbx, %rax
 	adcq  %r8, %rax

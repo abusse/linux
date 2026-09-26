@@ -1135,7 +1135,6 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
  */
 #define pmd_page(pmd)	pfn_to_page(pmd_pfn(pmd))
 
-/*
 #ifdef CONFIG_X86_EARLYMIC
 extern void mic_flush_icache_nonx(struct page *page, pgprotval_t protval);
 #endif

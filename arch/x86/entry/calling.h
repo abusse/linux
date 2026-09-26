@@ -382,6 +382,16 @@ For 32-bit we have the following conventions - kernel is built with
 #endif
 .endm
 
+#ifdef CONFIG_X86_EARLYMIC
+/* never executed on KNC (no FSGSBASE); the k1om assembler has no such mnemonics */
+.macro rdgsbase reg:req
+	ud2
+.endm
+.macro wrgsbase reg:req
+	ud2
+.endm
+#endif
+
 .macro SAVE_AND_SET_GSBASE scratch_reg:req save_reg:req
 	rdgsbase \save_reg
 	GET_PERCPU_BASE \scratch_reg
