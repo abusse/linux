@@ -188,6 +188,12 @@ static inline int pte_huge(pte_t pte)
 	return pte_flags(pte) & _PAGE_PSE;
 }
 
+#define set_pte(ptep, pte)		native_set_pte(ptep, pte)
+
+#define set_pte(ptep, pte)		native_set_pte(ptep, pte)
+
+#define set_pte(ptep, pte)		native_set_pte(ptep, pte)
+
 #ifdef CONFIG_X86_EARLYMIC
 static inline int pte_64k(pte_t pte)
 {

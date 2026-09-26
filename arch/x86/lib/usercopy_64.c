@@ -74,6 +74,11 @@ long __copy_user_flushcache(void *dst, const void __user *src, unsigned size)
 
 void __memcpy_flushcache(void *_dst, const void *_src, size_t size)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* No non-temporal stores or cache line flushes on k1om (no pmem either). */
+	memcpy(_dst, _src, size);
+	return;
+#else
 	unsigned long dest = (unsigned long) _dst;
 	unsigned long source = (unsigned long) _src;
 
@@ -134,6 +139,7 @@ void __memcpy_flushcache(void *_dst, const void *_src, size_t size)
 		memcpy((void *) dest, (void *) source, size);
 		clean_cache_range((void *) dest, size);
 	}
+#endif
 }
 EXPORT_SYMBOL_GPL(__memcpy_flushcache);
 

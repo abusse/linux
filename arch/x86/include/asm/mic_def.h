@@ -46,7 +46,7 @@
  */
 #define ETC_TICK_RATE           15625000
 extern	int etc_comp;
-cycle_t mic_etc_read(struct clocksource *cs);
+u64 mic_etc_read(struct clocksource *cs);
 extern struct clocksource clocksource_micetc;
 #endif
 
