@@ -188,7 +188,6 @@ static int sc16is7xx_probe(struct i2c_client *client,
 	port.iobase = 0x800000000UL;
 	port.mapbase = 0x800000000UL;
 	port.membase = (char *)0x800000000UL;
-	port.timeout = 0xff;
 	//if (early_serial_setup(&port) < 0) {
 	//	printk(KERN_INFO "BAW fail 1\n");
 	//}

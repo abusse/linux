@@ -272,7 +272,7 @@ static int __restore_fpregs_from_user(void __user *buf, u64 ufeatures,
 		return err;
 	/* a frame without the xstate part (fx_only) carries no VPU block */
 	if (fx_only)
-		return restore_vpu_checking(&init_fpstate.xsave.vpu);
+		return restore_vpu_checking(&init_fpstate.regs.xsave.vpu);
 	return restore_vpu_checking((struct vpustate_struct __force *)&xbuf->vpu);
 #endif
 	if (use_xsave()) {
