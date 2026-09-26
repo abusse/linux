@@ -33,6 +33,7 @@
  * of the License.
  */
 #include <linux/init.h>
+#include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/sfi.h>
 #include <linux/irq.h>
@@ -298,6 +299,10 @@ static unsigned long __init intel_mic_calibrate_tsc(void)
 #ifdef CONFIG_ML1OM
 	union sboxCorefreqReg core_freq_reg;
 #endif
+	/* 4.12+: setup_arch() calls this from simple_udelay_calibration(), before
+	 * ioremap() works; tsc_init() asks again once the SBOX can be mapped. */
+	if (!mic_sbox_mmio_va && !slab_is_available())
+		return 0;
 	mic_sbox_md_init();
 #ifdef CONFIG_X86_MIC_EMULATION
 	khz = MIC_CORE_FREQ;
