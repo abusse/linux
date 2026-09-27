@@ -420,7 +420,12 @@ static inline void cpu_tlbstate_update_lam(unsigned long lam, u64 untag_mask)
 
 static inline void __native_tlb_flush_global(unsigned long cr4)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* CR4.PGE is reserved on KNC (no global pages): a CR3 reload flushes everything */
+	native_write_cr3(__native_read_cr3());
+#else
 	native_write_cr4(cr4 ^ X86_CR4_PGE);
 	native_write_cr4(cr4);
+#endif
 }
 #endif /* _ASM_X86_TLBFLUSH_H */
