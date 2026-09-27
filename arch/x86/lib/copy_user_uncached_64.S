@@ -7,6 +7,15 @@
 #include <asm/asm.h>
 #include <asm/export.h>
 
+#ifdef CONFIG_X86_EARLYMIC
+/* no SSE2 on KNC: plain stores, no store fence */
+.macro movnti a:vararg
+	mov \a
+.endm
+.macro sfence
+.endm
+#endif
+
 /*
  * copy_user_nocache - Uncached memory copy with exception handling
  *

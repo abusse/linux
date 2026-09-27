@@ -60,7 +60,7 @@ static void __init mp_sfi_register_lapic(u8 id)
 	pr_info("registering lapic[%d]\n", id);
 #endif
 
-	generic_processor_info(id, GET_APIC_VERSION(apic_read(APIC_LVR)));
+	generic_processor_info(id);
 }
 
 static int __init sfi_parse_cpus(struct sfi_table_header *table)
