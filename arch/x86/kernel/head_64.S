@@ -407,7 +407,12 @@ SYM_INNER_LABEL(secondary_startup_64_no_verify, SYM_L_GLOBAL)
 	movq	apic_mmio_base(%rip), %rcx
 	addq	$APIC_ID, %rcx
 	movl	(%rcx), %eax
+#ifdef CONFIG_X86_EARLYMIC
+	shr	$23, %eax		/* KNC: 9-bit APIC id at bits 31:23 */
+	andl	$0x1ff, %eax
+#else
 	shr	$24, %eax
+#endif
 	jmp	.Llookup_AP
 
 .Lread_apicid_msr:
