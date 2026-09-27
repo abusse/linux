@@ -1034,8 +1034,7 @@ static int mic_idle_enter_c1(struct cpuidle_device *dev,
 
 	idle_count[cpu]++;
 	__mic_idle_enter_c1(dev, drv, index);
-	local_irq_enable();
-	return index;
+	return index;	/* cpuidle core re-enables IRQs (6.6 warns on a leaked IRQ state) */
 }
 
 /*
@@ -1238,8 +1237,7 @@ static int mic_idle_enter_cc6(struct cpuidle_device *dev,
 		idle_time = ktime_to_us(ktime_sub(ktime_get_real(), kt1));
 	}
 	__current_set_polling();
-	local_irq_enable();
-	return index;
+	return index;	/* cpuidle core re-enables IRQs (6.6 warns on a leaked IRQ state) */
 }
 
 /**
@@ -1389,8 +1387,7 @@ static int mic_idle_enter_pc3(struct cpuidle_device *dev,
 	idle_time = ktime_to_us(ktime_sub(ktime_get_real(), kt1));
 bail:
 	__current_set_polling();
-	local_irq_enable();
-	return index;
+	return index;	/* cpuidle core re-enables IRQs (6.6 warns on a leaked IRQ state) */
 }
 
 /**
