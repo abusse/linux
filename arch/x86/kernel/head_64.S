@@ -372,11 +372,13 @@ SYM_INNER_LABEL(secondary_startup_64_no_verify, SYM_L_GLOBAL)
 	 * Do a global TLB flush after the CR3 switch to make sure the TLB
 	 * entries from the identity mapping are flushed.
 	 */
+#ifndef CONFIG_X86_EARLYMIC	/* CR4.PGE is reserved on KNC; the CR3 write above flushed everything */
 	movq	%cr4, %rcx
 	movq	%rcx, %rax
 	xorq	$X86_CR4_PGE, %rcx
 	movq	%rcx, %cr4
 	movq	%rax, %cr4
+#endif
 
 	/* Ensure I am executing from virtual addresses */
 	movq	$1f, %rax
