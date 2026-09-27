@@ -1550,7 +1550,10 @@ SYM_FUNC_START(clear_bhb_loop)
 	sub	$1, %ecx
 	jnz	1b
 	RET
-5:	lfence
+5:
+#ifndef CONFIG_X86_EARLYMIC	/* never patched in on KNC; no lfence in the k1om assembler */
+	lfence
+#endif
 	pop	%rbp
 	RET
 SYM_FUNC_END(clear_bhb_loop)

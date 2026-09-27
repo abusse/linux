@@ -793,7 +793,11 @@ extern bool gds_ucode_mitigated(void);
  */
 static inline void weak_wrmsr_fence(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	mb();		/* no mfence/lfence on k1om (no TSC deadline / x2APIC either) */
+#else
 	alternative("mfence; lfence", "", ALT_NOT(X86_FEATURE_APIC_MSRS_FENCE));
+#endif
 }
 
 #endif /* _ASM_X86_PROCESSOR_H */

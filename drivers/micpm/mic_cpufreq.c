@@ -1321,10 +1321,9 @@ static int mic_cpu_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static int mic_cpu_exit(struct cpufreq_policy *policy)
+static void mic_cpu_exit(struct cpufreq_policy *policy)
 {
 	/* 3.16 removed cpufreq_frequency_table_put_attr(); nothing to undo. */
-	return 0;
 }
 
 /**

@@ -608,7 +608,6 @@ intel_alloc_init_gmbus(const char *names[GMBUS_NUM_PORTS],
 		struct intel_gmbus *bus = &gmbus[i];
 
 		bus->adapter.owner = THIS_MODULE;
-		bus->adapter.class = I2C_CLASS_DDC;
 		snprintf(bus->adapter.name,
 			 sizeof(bus->adapter.name),
 			 "i915 gmbus %s",
@@ -774,14 +773,13 @@ void intel_teardown_gmbus(struct drm_device *dev)
 }
 #endif /* !CONFIG_X86_EARLYMIC */
 
-static int intel_gmbus_remove(struct platform_device* pdev)
+static void intel_gmbus_remove(struct platform_device* pdev)
 {
 	struct intel_gmbus *gmbus = platform_get_drvdata(pdev);
 
 	iounmap(dbox_mmio_base);
 	if (gmbus != NULL)
 		intel_dealloc_gmbus(gmbus);
-	return 0;
 }
 
 /**
