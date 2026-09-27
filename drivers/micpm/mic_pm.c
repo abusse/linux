@@ -448,8 +448,13 @@ static int __init mic_pm_init(void)
 		
 	}
 	#endif
-	micpm_global_kobject = kobject_create_and_add("micpm",
-					&cpu_subsys.dev_root->kobj);
+	{
+		struct device *dev_root = bus_get_dev_root(&cpu_subsys);
+
+		BUG_ON(!dev_root);
+		micpm_global_kobject = kobject_create_and_add("micpm", &dev_root->kobj);
+		put_device(dev_root);
+	}
 	BUG_ON(!micpm_global_kobject);
 	micpm_sysfs_init();					
 	micpm_proc_init(mic_cpuidle_cc6,mic_cpuidle_pc3,mic_cpuidle_pc6,mic_cpufreq_driver);

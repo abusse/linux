@@ -167,6 +167,8 @@
 .endm
 .macro ANNOTATE_NOENDBR
 .endm
+.macro VALIDATE_UNRET_BEGIN
+.endm
 .macro REACHABLE
 .endm
 #endif

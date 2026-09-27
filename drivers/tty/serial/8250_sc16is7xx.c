@@ -156,8 +156,7 @@ void sc16is_serial_out(struct uart_port *port, int offset, int value)
 extern struct uart_port kdb_uart_port;
 extern int kdb_serial_line;
 
-static int sc16is7xx_probe(struct i2c_client *client,
-		const struct i2c_device_id *id)
+static int sc16is7xx_probe(struct i2c_client *client)
 {
 	struct uart_port port;
 	struct uart_8250_port up;
@@ -237,8 +236,7 @@ static const struct i2c_device_id sc16is7xx_id[] = {
 	{ }
 };
 
-extern int sc16is7xx_probe(struct i2c_client *client,
-		const struct i2c_device_id *id);
+extern int sc16is7xx_probe(struct i2c_client *client);
 
 static struct i2c_driver sc16is7xx_driver = {
 	.driver = {

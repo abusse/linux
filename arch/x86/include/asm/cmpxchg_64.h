@@ -33,6 +33,7 @@ union __u128_halves {
 	};
 };
 
+#ifndef CONFIG_MK1OM	/* k1om lacks CMPXCHG16B */
 #define __arch_cmpxchg128(_ptr, _old, _new, _lock)			\
 ({									\
 	union __u128_halves o = { .full = (_old), },			\
@@ -92,5 +93,6 @@ static __always_inline bool arch_try_cmpxchg128_local(volatile u128 *ptr, u128 *
 #define arch_try_cmpxchg128_local arch_try_cmpxchg128_local
 
 #define system_has_cmpxchg128()		boot_cpu_has(X86_FEATURE_CX16)
+#endif /* !CONFIG_MK1OM */
 
 #endif /* _ASM_X86_CMPXCHG_64_H */

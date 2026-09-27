@@ -504,25 +504,6 @@ SYM_INNER_LABEL(common_startup_64, SYM_L_LOCAL)
 	 * the per cpu areas are set up.
 	 */
 
-	mov ap_code(%rip), %ebx
-	testl	%ebx, %ebx
-	jz	skip_for_bsp2
-
-	/* use our apic id to look up our gs address in the per cpu gs map */
-	shl $3,%ecx						/* get offset into gs address array */
-	lea smp_gs_map(%rip),%r11		/* get the base of the gs address map */
-	add %rcx,%r11					/* offset to the correct location for this cpu */
-	movq (%r11),%rax				/* get our gs address */
-
-	mov ap_code(%rip), %ebx
-	testl %ebx, %ebx
-	jnz  skip_for_secondary2
-
-skip_for_bsp2:
-	movq	initial_gs(%rip),%rax
-
-skip_for_secondary2:   
-
 	movl	$MSR_GS_BASE,%ecx
 #ifndef CONFIG_SMP
 	leaq	INIT_PER_CPU_VAR(fixed_percpu_data)(%rip), %rdx

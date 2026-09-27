@@ -500,6 +500,8 @@ void __init x86_mic_early_setup(void)
 	x86_init.timers.timer_init = x86_init_noop;
 #endif	
 	x86_init.irqs.pre_vector_init = x86_init_noop;
+	/* 6.5 parallel AP bringup (STARTUP_READ_APICID): not validated on KNC yet */
+	x86_cpuinit.parallel_bringup = false;
 
 	x86_platform.calibrate_tsc = intel_mic_calibrate_tsc;
 	/* 4.8+: tsc_init() also runs calibrate_cpu(); the PIT/PM-timer default hangs here. */
