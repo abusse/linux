@@ -339,6 +339,8 @@ config INSTRUCTION_DECODER
 config OUTPUT_FORMAT
 	string
 	default "elf32-i386" if X86_32
+	default "elf64-l1om" if "$(ARCH)" = "l1om"
+	default "elf64-k1om" if "$(ARCH)" = "k1om"
 	default "elf64-x86-64" if X86_64
 
 config LOCKDEP_SUPPORT
@@ -564,6 +566,7 @@ config X86_EXTENDED_PLATFORM
 
 	  64-bit platforms (CONFIG_64BIT=y):
 		Numascale NumaChip
+		Intel MIC PCIe coprocessor
 		ScaleMP vSMP
 		SGI Ultraviolet
 		Merrifield/Moorefield MID devices
@@ -586,6 +589,20 @@ config X86_NUMACHIP
 	  Adds support for Numascale NumaChip large-SMP systems. Needed to
 	  enable more than ~168 cores.
 	  If you don't have one of these, you should say N here.
+
+config X86_MICPCI
+	bool "Intel MIC PCIe coprocessor"
+	depends on X86_64
+	depends on X86_EXTENDED_PLATFORM
+	select ML1OM if "$(ARCH)" = "l1om"
+	select MK1OM if "$(ARCH)" = "k1om"
+	select VIRTIO			# mic_virtblk (out-of-tree) needs the virtio core
+	select VIRTIO_RING
+	select X86_LOCAL_APIC
+	select MMU_NOTIFIER
+	help
+	  Support for Intel Many Integrated Core (Intel MIC) SoC's in a
+	  PCIe coprocessor form factor.
 
 config X86_VSMP
 	bool "ScaleMP vSMP"
@@ -2118,7 +2135,7 @@ config X86_NEED_RELOCS
 
 config PHYSICAL_ALIGN
 	hex "Alignment value to which kernel should be aligned"
-	default "0x200000"
+	default "0x1000000"
 	range 0x2000 0x1000000 if X86_32
 	range 0x200000 0x1000000 if X86_64
 	help

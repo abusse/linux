@@ -245,6 +245,38 @@ config MATOM
 
 endchoice
 
+# Intel MIC cores: outside the (32-bit only) processor family choice since 6.15
+config ML1OM
+	bool "Intel Aubrey Isle"
+	depends on X86_MICPCI && X86_64
+	help
+
+	  Select this for the CPU used in the Intel Many Integrated Core
+	  (Intel MIC) Software Development Vehicle code-named Knights
+	  Ferry. The CPU is an in-order, 4-way SMT design that is mostly
+	  x86-64 compatible but has a different vector unit. The
+	  differences from x86-64 (and Knights Corner) force
+	  incompatible calling conventions, so GCC and binutils assign
+	  it a unique ELF machine type: EM_L1OM.
+
+	  Future Intel products will be part of the x86 ecosystem, *not*
+	  derivatives of this incompatible offshoot.
+
+config MK1OM
+	bool "Intel Knights Corner"
+	depends on X86_MICPCI && X86_64
+	help
+
+	  Select this for the CPU used in the Intel Many Integrated Core
+	  (Intel MIC) products code-named Knights Corner. The CPU is an
+	  in-order, 4-way SMT design that is mostly x86-64 compatible
+	  but has a different vector unit. The differences from x86-64
+	  force incompatible calling conventions, so GCC and binutils
+	  assign it a unique ELF machine type: EM_K1OM.
+
+	  Future Intel products will be part of the x86 ecosystem, *not*
+	  derivatives of this incompatible offshoot.
+
 config CC_HAS_MARCH_NATIVE
 	# This flag might not be available in cross-compilers:
 	def_bool $(cc-option, -march=native)
@@ -291,7 +323,7 @@ config X86_INTERNODE_CACHE_SHIFT
 config X86_L1_CACHE_SHIFT
 	int
 	default "7" if MPENTIUM4
-	default "6" if MK7 || MPENTIUMM || MATOM || MVIAC7 || X86_GENERIC || X86_64
+	default "6" if MK7 || MPENTIUMM || MATOM || MVIAC7 || ML1OM || MK1OM || X86_GENERIC || X86_64
 	default "4" if MELAN || M486SX || M486 || MGEODEGX1
 	default "5" if MWINCHIP3D || MWINCHIPC6 || MCRUSOE || MEFFICEON || MCYRIXIII || MK6 || MPENTIUMIII || MPENTIUMII || M686 || M586MMX || M586TSC || M586 || MVIAC3_2 || MGEODE_LX
 
@@ -331,7 +363,7 @@ config X86_CX8
 # generates cmov.
 config X86_CMOV
 	def_bool y
-	depends on (MK7 || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MVIAC3_2 || MVIAC7 || MCRUSOE || MEFFICEON || MATOM || MGEODE_LX || X86_64)
+	depends on (MK7 || MPENTIUM4 || MPENTIUMM || MPENTIUMIII || MPENTIUMII || M686 || MVIAC3_2 || MVIAC7 || MCRUSOE || MEFFICEON || MATOM || MGEODE_LX || X86_64) && !MK1OM	# no cmov on KNC
 
 config X86_MINIMUM_CPU_FAMILY
 	int
@@ -351,6 +383,11 @@ config IA32_FEAT_CTL
 config X86_VMX_FEATURE_NAMES
 	def_bool y
 	depends on IA32_FEAT_CTL
+
+# not-X86_64 wierdness shared by ML1OM and MK1OM
+config X86_EARLYMIC
+       def_bool y
+       depends on ML1OM || MK1OM
 
 menuconfig PROCESSOR_SELECT
 	bool "Supported processor vendors" if EXPERT
