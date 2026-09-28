@@ -2,11 +2,19 @@
 #ifndef __X86_KERNEL_FPU_INTERNAL_H
 #define __X86_KERNEL_FPU_INTERNAL_H
 
+#ifdef CONFIG_X86_EARLYMIC
+#include <asm/mic_ni.h>
+#endif
+
 extern struct fpstate init_fpstate;
 
 /* CPU feature check wrappers */
 static __always_inline __pure bool use_xsave(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* No XSAVE, but the VPU state rides in the xstate layout/sigframe. */
+	return 1;
+#endif
 	return cpu_feature_enabled(X86_FEATURE_XSAVE);
 }
 

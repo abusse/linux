@@ -54,11 +54,23 @@ static inline int fnsave_to_user_sigframe(struct fregs_state __user *fx)
 
 static inline int fxsave_to_user_sigframe(struct fxregs_state __user *fx)
 {
-	if (IS_ENABLED(CONFIG_X86_32))
-		return user_insn(fxsave %[fx], [fx] "=m" (*fx), "m" (*fx));
-	else
-		return user_insn(fxsaveq %[fx], [fx] "=m" (*fx), "m" (*fx));
+	int err;
 
+	if (IS_ENABLED(CONFIG_X86_32))
+		err = user_insn(fxsave %[fx], [fx] "=m" (*fx), "m" (*fx));
+	else
+		err = user_insn(fxsaveq %[fx], [fx] "=m" (*fx), "m" (*fx));
+#ifdef CONFIG_MK1OM
+	/* KNC errata: MXCSR.DUE (bit 21) must be 1 or the later fxrstor faults. */
+	if (!err) {
+		u32 mxcsr;
+
+		if (__get_user(mxcsr, &fx->mxcsr) ||
+		    __put_user(mxcsr | VXCSR_DEFAULT, &fx->mxcsr))
+			err = -EFAULT;
+	}
+#endif
+	return err;
 }
 
 static inline void fxrstor(struct fxregs_state *fx)

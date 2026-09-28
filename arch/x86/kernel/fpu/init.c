@@ -20,6 +20,7 @@
 static void fpu__init_cpu_generic(void)
 {
 	unsigned long cr0;
+#ifndef CONFIG_X86_EARLYMIC
 	unsigned long cr4_mask = 0;
 
 	if (boot_cpu_has(X86_FEATURE_FXSR))
@@ -28,6 +29,7 @@ static void fpu__init_cpu_generic(void)
 		cr4_mask |= X86_CR4_OSXMMEXCPT;
 	if (cr4_mask)
 		cr4_set_bits(cr4_mask);
+#endif
 
 	cr0 = read_cr0();
 	cr0 &= ~(X86_CR0_TS|X86_CR0_EM); /* clear TS and EM */
@@ -119,6 +121,15 @@ static void __init fpu__init_system_mxcsr(void)
 		 */
 		if (mask == 0)
 			mask = 0x0000ffbf;
+#ifdef CONFIG_MK1OM
+		{
+			/* KNC: DUE (bit 21) must be set to avoid GP# on vector register access. */
+			unsigned int vxcsr = VXCSR_DEFAULT;
+
+			asm volatile("ldmxcsr %0" :: "m" (vxcsr));
+			mask |= vxcsr;
+		}
+#endif
 	}
 	mxcsr_feature_mask &= mask;
 }

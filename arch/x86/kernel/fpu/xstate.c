@@ -814,6 +814,30 @@ void __init fpu__init_system_xstate(unsigned int legacy_size)
 		return;
 	}
 
+#ifdef CONFIG_X86_EARLYMIC
+	/*
+	 * KNC has no XSAVE. The VPU state is stored by hand into the fixed
+	 * xregs_state layout (i387 + header + vpu) and advertised as the
+	 * xstate features FP|SSE|YMM|ZMM so ptrace and the signal frame
+	 * carry it (same ABI as the MPSS kernel).
+	 */
+	fpu_kernel_cfg.max_features = XFEATURE_MASK_FP | XFEATURE_MASK_SSE |
+				      XFEATURE_MASK_YMM | XFEATURE_MASK_ZMM;
+	fpu_kernel_cfg.default_features = fpu_kernel_cfg.max_features;
+	fpu_user_cfg.max_features = fpu_kernel_cfg.max_features;
+	fpu_user_cfg.default_features = fpu_kernel_cfg.max_features;
+	fpu_kernel_cfg.max_size = sizeof(struct xregs_state);
+	fpu_kernel_cfg.default_size = fpu_kernel_cfg.max_size;
+	fpu_user_cfg.max_size = fpu_kernel_cfg.max_size;
+	fpu_user_cfg.default_size = fpu_kernel_cfg.max_size;
+	/* 6.15: kernel threads (the idle task here) carry no FPU state to reset */
+	update_regset_xstate_info(fpu_user_cfg.max_size, fpu_user_cfg.max_features);
+	init_fpstate.size = fpu_kernel_cfg.default_size;
+	init_fpstate.xfeatures = fpu_kernel_cfg.default_features;
+	pr_info("x86/fpu: KNC VPU state as xstate 0x%llx, context size is %d bytes.\n",
+		fpu_kernel_cfg.max_features, fpu_kernel_cfg.max_size);
+	return;
+#endif
 	if (!boot_cpu_has(X86_FEATURE_XSAVE)) {
 		pr_info("x86/fpu: x87 FPU will use %s\n",
 			boot_cpu_has(X86_FEATURE_FXSR) ? "FXSAVE" : "FSAVE");
