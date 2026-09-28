@@ -169,7 +169,9 @@ void restore_fpregs_from_fpstate(struct fpstate *fpstate, u64 mask)
 	if (unlikely(static_cpu_has_bug(X86_BUG_FXSAVE_LEAK))) {
 		asm volatile(
 			"fnclex\n\t"
-			"emms\n\t"
+#ifndef CONFIG_X86_EARLYMIC
+			"emms\n\t"		/* KNC has no MMX */
+#endif
 			"fildl %[addr]"	/* set F?P to defined value */
 			: : [addr] "m" (*fpstate));
 	}

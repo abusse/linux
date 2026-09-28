@@ -1,4 +1,28 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+/* * Copyright (c) Intel Corporation (2011).
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
+
 /*
  *  linux/arch/x86/kernel/head_64.S -- start in 32bit and switch to 64bit
  *
@@ -94,8 +118,10 @@ SYM_CODE_START_NOALIGN(startup_64)
 	call	__pi_sme_enable
 #endif
 
-	/* Sanitize CPU configuration */
+#ifndef CONFIG_X86_EARLYMIC
+	/* Sanitize CPU configuration (KNC: no SSE, no MISC_ENABLE MSR) */
 	call verify_cpu
+#endif
 
 	/*
 	 * Derive the kernel's physical-to-virtual offset from the physical and
@@ -159,8 +185,10 @@ SYM_CODE_START(secondary_startup_64)
 	 * after the boot processor executes this code.
 	 */
 
-	/* Sanitize CPU configuration */
+#ifndef CONFIG_X86_EARLYMIC
+	/* Sanitize CPU configuration (KNC: no SSE, no MISC_ENABLE MSR) */
 	call verify_cpu
+#endif
 
 	/*
 	 * The secondary_startup_64_no_verify entry point is only used by

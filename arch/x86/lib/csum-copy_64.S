@@ -89,8 +89,10 @@ SYM_FUNC_START(csum_partial_copy_generic)
 	 * No _ASM_EXTABLE_UA; this is used for intentional prefetch on a
 	 * potentially unmapped kernel address.
 	 */
+#ifndef CONFIG_X86_EARLYMIC
 	_ASM_EXTABLE(30b, 2f)
 	prefetcht0 5*64(%rdi)
+#endif
 2:
 	adcq  %rbx, %rax
 	adcq  %r8, %rax
