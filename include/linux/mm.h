@@ -1862,6 +1862,9 @@ static inline struct folio *pfn_folio(unsigned long pfn)
 #ifdef CONFIG_MMU
 static inline pte_t mk_pte(const struct page *page, pgprot_t pgprot)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	mic_flush_icache_nonx((struct page *)page, pgprot_val(pgprot));
+#endif
 	return pfn_pte(page_to_pfn(page), pgprot);
 }
 
@@ -1877,6 +1880,9 @@ static inline pte_t mk_pte(const struct page *page, pgprot_t pgprot)
  */
 static inline pte_t folio_mk_pte(const struct folio *folio, pgprot_t pgprot)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	mic_flush_icache_nonx((struct page *)&folio->page, pgprot_val(pgprot));
+#endif
 	return pfn_pte(folio_pfn(folio), pgprot);
 }
 
