@@ -1014,6 +1014,10 @@ void __init smp_prepare_cpus_common(void)
 			per_cpu(cpu_info.cpu_index, cpu) = nr_cpu_ids;
 	}
 
+#ifdef CONFIG_X86_EARLYMIC
+	disable_icache_snoop();		/* we are the BSP */
+	mic_smpt_init();		/* MIC system memory page tables (host access) */
+#endif
 	for_each_possible_cpu(cpu) {
 		node = cpu_to_node(cpu);
 

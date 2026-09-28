@@ -53,6 +53,7 @@
 #include <linux/cpuset.h>
 #include <linux/memcontrol.h>
 #include <linux/cgroup.h>
+#include <linux/sfi.h>
 #include <linux/tick.h>
 #include <linux/sched/isolation.h>
 #include <linux/interrupt.h>
@@ -1589,6 +1590,8 @@ static noinline void __init kernel_init_freeable(void)
 	async_init();
 	padata_init();
 	page_alloc_init_late();
+	/* SFI framework carried for KNC: switch the tables from early_ioremap to ioremap */
+	sfi_init_late();
 
 	do_basic_setup();
 

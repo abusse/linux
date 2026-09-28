@@ -1926,6 +1926,71 @@ static struct irq_chip ioapic_ir_chip __read_mostly = {
 				  IRQCHIP_AFFINITY_PRE_STARTUP,
 };
 
+#ifdef CONFIG_X86_EARLYMIC
+/*
+ * SBOX APIC ICR interrupt support (MIC host<->card doorbell IRQs): plain
+ * vector-domain IRQs whose vector is programmed into an SBOX ICR register.
+ */
+static void mask_sbox_irq(struct irq_data *data)
+{
+#ifdef CONFIG_MK1OM
+	void __iomem *icraddr = irq_data_get_irq_handler_data(data);
+	u32 value = readl(icraddr);
+	value |= 1 << 16;
+	writel(value, icraddr);
+#endif
+}
+
+static void unmask_sbox_irq(struct irq_data *data)
+{
+#ifdef CONFIG_MK1OM
+	void __iomem *icraddr = irq_data_get_irq_handler_data(data);
+	u32 value = readl(icraddr);
+	value &= ~(1 << 16);
+	writel(value, icraddr);
+#endif
+}
+
+static struct irq_chip sbox_chip = {
+	.name		= "SBOX-ICR",
+	.irq_unmask	= unmask_sbox_irq,
+	.irq_mask	= mask_sbox_irq,
+	.irq_ack	= apic_ack_edge,
+};
+
+static void setup_sbox_irq(int irq, int i)
+{
+	struct irq_cfg *cfg = irqd_cfg(irq_get_irq_data(irq));
+	void __iomem *icraddr = mic_sbox_mmio_va + SBOX_APICICR0 + (i * 8);
+	int vector = cfg->vector;
+
+	irq_set_chip_and_handler_name(irq, &sbox_chip, handle_edge_irq, "edge");
+	irq_set_handler_data(irq, icraddr);
+	/* Write the vector number and destination apicid into the SBOX ICR */
+	writel(vector, icraddr);
+	writel(cfg->dest_apicid, icraddr + 4);
+	printk("irq %d for SBOX, vector=%d, icr=%u\n", irq, vector, readl(icraddr));
+}
+
+void arch_setup_sbox_irqs(unsigned int *irqs, int n)
+{
+	struct irq_alloc_info info;
+	int node = cpu_to_node(boot_cpu_physical_apicid);
+	int irq, i;
+
+	init_irq_alloc_info(&info, NULL);
+	/* 4.15+: without a mask the vector domain only reserves (and later spreads the
+	 * vectors over CPUs); the ICR has one fixed destination, so assign on the BSP now. */
+	info.mask = cpumask_of(0);
+	irq = irq_domain_alloc_irqs(x86_vector_domain, n, node, &info);
+	BUG_ON(irq <= 0);
+	for (i = 0; i < n; i++) {
+		setup_sbox_irq(irq + i, i);
+		irqs[i] = irq + i;
+	}
+}
+#endif /* CONFIG_X86_EARLYMIC */
+
 static inline void init_IO_APIC_traps(void)
 {
 	struct irq_cfg *cfg;

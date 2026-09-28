@@ -21,6 +21,7 @@
 #include <linux/pci.h>
 #include <linux/random.h>
 #include <linux/root_dev.h>
+#include <linux/sfi.h>
 #include <linux/static_call.h>
 #include <linux/swiotlb.h>
 #include <linux/tboot.h>
@@ -1230,6 +1231,7 @@ void __init setup_arch(char **cmdline_p)
 	 * specific parser.
 	 */
 	acpi_boot_init();
+	sfi_init();
 	x86_init.mpparse.parse_smp_cfg();
 
 	/* Last opportunity to detect and map the local APIC */
