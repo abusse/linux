@@ -458,6 +458,10 @@ static void set_io_from_upio(struct uart_port *p)
 		break;
 #endif
 	default:
+#ifdef CONFIG_X86_EARLYMIC
+		if (p->iotype == 0xff)	/* KNC SC16IS7xx I2C console: caller-provided accessors */
+			break;
+#endif
 		WARN(p->iotype != UPIO_PORT || p->iobase,
 		     "Unsupported UART type %x\n", p->iotype);
 		p->serial_in = no_serial_in;
