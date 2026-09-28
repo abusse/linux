@@ -6855,6 +6855,11 @@ __init int intel_pmu_init(void)
 	char *name;
 	struct x86_hybrid_pmu *pmu;
 
+#ifdef CONFIG_MK1OM
+	extern int knc_pmu_init(void);
+	if (boot_cpu_data.x86 == 0x0b)		/* Knights Corner */
+		return knc_pmu_init();
+#endif
 	/* Architectural Perfmon was introduced starting with Core "Yonah" */
 	if (!cpu_has(&boot_cpu_data, X86_FEATURE_ARCH_PERFMON)) {
 		switch (boot_cpu_data.x86) {
