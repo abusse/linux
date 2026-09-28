@@ -236,6 +236,8 @@ static inline void enable_copy_mc_fragile(void)
 {
 }
 #endif
+/* KNC RAS: re-added (3.16 dropped it); used by intelmic.c crash path and micras */
+extern atomic_t mce_entry;
 
 struct cper_ia_proc_ctx;
 

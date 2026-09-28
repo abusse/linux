@@ -66,6 +66,11 @@ static DEFINE_MUTEX(mce_sysfs_mutex);
 
 #define SPINUNIT		100	/* 100ns */
 
+atomic_t mce_entry;
+#ifdef CONFIG_X86_EARLYMIC
+EXPORT_SYMBOL_GPL(mce_entry);
+#endif
+
 DEFINE_PER_CPU(unsigned, mce_exception_count);
 
 DEFINE_PER_CPU_READ_MOSTLY(unsigned int, mce_num_banks);
@@ -82,6 +87,65 @@ struct mce_bank_dev {
 static struct mce_bank_dev mce_bank_devs[MAX_NR_BANKS];
 
 struct mce_vendor_flags mce_flags __read_mostly;
+
+#ifdef CONFIG_X86_EARLYMIC
+/*
+ * KNC RAS intercept hooks. micras registers these to receive MC events and to
+ * report the CTL bank register the generic handler ignores. Exported so the
+ * out-of-tree micras module can set them; null when micras is not loaded.
+ */
+void (*mca_poll)(struct mce *, uint64_t, int);
+void (*mca_exc_flt)(struct mce *, uint64_t, int);
+void (*mca_exc_entry)(struct mce *, int, int, int, char *);
+void (*mca_exc_log)(struct mce *, uint64_t, int, int, char *, int, int);
+void (*mca_exc_panic)(struct mce *, char *, char *, int);
+void (*mca_exc_exit)(struct mce *, int, int, int, int);
+int  (*mca_print)(char *, ...) __attribute__((format(printf, 1, 2)));
+EXPORT_SYMBOL_GPL(mca_poll);
+EXPORT_SYMBOL_GPL(mca_exc_flt);
+EXPORT_SYMBOL_GPL(mca_exc_entry);
+EXPORT_SYMBOL_GPL(mca_exc_log);
+EXPORT_SYMBOL_GPL(mca_exc_panic);
+EXPORT_SYMBOL_GPL(mca_exc_exit);
+EXPORT_SYMBOL_GPL(mca_print);
+int mce_disabled __read_mostly;		/* mirrors mca_cfg.disabled for micras */
+EXPORT_SYMBOL_GPL(mce_disabled);
+
+#define __do_mca_callout(which, ...)	do { if (which) which(__VA_ARGS__); } while (0)
+#define do_mca_exc_entry(...) __do_mca_callout(mca_exc_entry, __VA_ARGS__)
+#define do_mca_exc_panic(...) __do_mca_callout(mca_exc_panic, __VA_ARGS__)
+#define do_mca_exc_exit(...)  __do_mca_callout(mca_exc_exit,  __VA_ARGS__)
+#define do_mca_print(...)     __do_mca_callout(mca_print,     __VA_ARGS__)
+static inline void do_mca_exc_flt(struct mce *mce, int fake)
+{
+	u64 ctl;
+	if (mca_exc_flt) {
+		ctl = mce_rdmsrq(MSR_IA32_MCx_CTL(mce->bank));
+		if (mce->status & MCI_STATUS_MISCV)
+			mce->misc = mce_rdmsrq(MSR_IA32_MCx_MISC(mce->bank));
+		if (mce->status & MCI_STATUS_ADDRV)
+			mce->addr = mce_rdmsrq(MSR_IA32_MCx_ADDR(mce->bank));
+		mca_exc_flt(mce, ctl, fake);
+	}
+}
+static inline void do_mca_poll(struct mce *mce, int fake)
+{
+	u64 ctl;
+	if (mca_poll) {
+		ctl = mce_rdmsrq(MSR_IA32_MCx_CTL(mce->bank));
+		mca_poll(mce, ctl, fake);
+	}
+}
+static inline void do_mca_exc_log(struct mce *mce, int fake, int nwo,
+				  char *msg, int bad, int worst)
+{
+	u64 ctl;
+	if (mca_exc_log) {
+		ctl = mce_rdmsrq(MSR_IA32_MCx_CTL(mce->bank));
+		mca_exc_log(mce, ctl, fake, nwo, msg, bad, worst);
+	}
+}
+#endif
 
 struct mca_config mca_cfg __read_mostly = {
 	.bootlog  = -1,
@@ -272,6 +336,9 @@ static noinstr void mce_panic(const char *msg, struct mce_hw_err *final, char *e
 	 * matters a whole lot since the machine is going to panic anyway.
 	 */
 	instrumentation_begin();
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_panic(&final->m, msg, exp, fake_panic);	/* 6.15: mce_hw_err */
+#endif
 
 	if (!fake_panic) {
 		/*
@@ -839,6 +906,9 @@ void machine_check_poll(enum mcp_flags flags, mce_banks_t *b)
 			mce_log(&err);
 
 clear_it:
+#ifdef CONFIG_X86_EARLYMIC
+		do_mca_poll(m, __this_cpu_read(injectm.finished));
+#endif
 		clear_bank(m);
 	}
 
@@ -1354,8 +1424,12 @@ __mc_scan_banks(struct mce_hw_err *err, struct pt_regs *regs,
 		 * machine_check_poll(). Leave them alone, unless this panics.
 		 */
 		if (!(m->status & (cfg->ser ? MCI_STATUS_S : MCI_STATUS_UC)) &&
-			!no_way_out)
+			!no_way_out) {
+#ifdef CONFIG_X86_EARLYMIC
+			do_mca_exc_flt(m, __this_cpu_read(injectm.finished));
+#endif
 			continue;
+		}
 
 		/* Set taint even when machine check was not enabled. */
 		taint++;
@@ -1524,6 +1598,9 @@ static noinstr void unexpected_machine_check(struct pt_regs *regs)
 noinstr void do_machine_check(struct pt_regs *regs)
 {
 	int worst = 0, order, no_way_out, kill_current_task, lmce, taint = 0;
+#ifdef CONFIG_X86_EARLYMIC
+	int entry = 0, fake = 0;
+#endif
 	DECLARE_BITMAP(valid_banks, MAX_NR_BANKS) = { 0 };
 	DECLARE_BITMAP(toclear, MAX_NR_BANKS) = { 0 };
 	struct mce_hw_err *final;
@@ -1564,6 +1641,10 @@ noinstr void do_machine_check(struct pt_regs *regs)
 	 * on Intel.
 	 */
 	lmce = 1;
+#ifdef CONFIG_X86_EARLYMIC
+	entry = atomic_inc_return(&mce_entry);
+	fake = __this_cpu_read(injectm.finished);
+#endif
 
 	this_cpu_inc(mce_exception_count);
 
@@ -1606,8 +1687,14 @@ noinstr void do_machine_check(struct pt_regs *regs)
 	} else {
 		order = mce_start(&no_way_out);
 	}
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_entry(m, fake, no_way_out, entry, msg);
+#endif
 
 	taint = __mc_scan_banks(&err, regs, final, toclear, valid_banks, no_way_out, &worst);
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_log(m, fake, no_way_out, msg, worst, worst);
+#endif
 
 	if (!no_way_out)
 		mce_clear_state(toclear);
@@ -1638,6 +1725,9 @@ noinstr void do_machine_check(struct pt_regs *regs)
 			mce_panic("Local fatal machine check!", &err, msg);
 		}
 	}
+#ifdef CONFIG_X86_EARLYMIC
+	do_mca_exc_exit(m, no_way_out, worst, entry, order);
+#endif
 
 	/*
 	 * Enable instrumentation around the external facilities like task_work_add()
@@ -1701,6 +1791,9 @@ noinstr void do_machine_check(struct pt_regs *regs)
 
 out:
 	instrumentation_end();
+#ifdef CONFIG_X86_EARLYMIC
+	atomic_dec(&mce_entry);
+#endif
 
 clear:
 	mce_wrmsrq(MSR_IA32_MCG_STATUS, 0);

@@ -18,7 +18,10 @@
 
 static BLOCKING_NOTIFIER_HEAD(mce_injector_chain);
 
-static DEFINE_MUTEX(mce_chrdev_read_mutex);
+DEFINE_MUTEX(mce_chrdev_read_mutex);
+#ifdef CONFIG_X86_EARLYMIC
+EXPORT_SYMBOL_GPL(mce_chrdev_read_mutex);	/* micras locks the mcelog buffer */
+#endif
 
 static char mce_helper[128];
 static char *mce_helper_argv[2] = { mce_helper, NULL };
@@ -29,7 +32,10 @@ static char *mce_helper_argv[2] = { mce_helper, NULL };
  * separate MCEs from kernel messages to avoid bogus bug reports.
  */
 
-static struct mce_log_buffer *mcelog;
+struct mce_log_buffer *mcelog;
+#ifdef CONFIG_X86_EARLYMIC
+EXPORT_SYMBOL_GPL(mcelog);	/* micras scans it for new events */
+#endif
 
 static DECLARE_WAIT_QUEUE_HEAD(mce_chrdev_wait);
 
