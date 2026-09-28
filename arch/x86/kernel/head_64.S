@@ -250,15 +250,18 @@ SYM_INNER_LABEL(common_startup_64, SYM_L_LOCAL)
 	movq	%cr4, %rcx
 	andl	%edx, %ecx
 
-	/* Even if ignored in long mode, set PSE uniformly on all logical CPUs. */
+#ifndef CONFIG_X86_EARLYMIC	/* KNC: CR4.PSE erratum */
 	btsl	$X86_CR4_PSE_BIT, %ecx
+#endif
 	movq	%rcx, %cr4
 
 	/*
 	 * Set CR4.PGE to re-enable global translations.
 	 */
+#ifndef CONFIG_X86_EARLYMIC	/* CR4.PGE is reserved on KNC (no global pages) */
 	btsl	$X86_CR4_PGE_BIT, %ecx
 	movq	%rcx, %cr4
+#endif
 
 #ifdef CONFIG_SMP
 	/*

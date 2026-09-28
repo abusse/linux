@@ -188,7 +188,8 @@ void intel_unlock_cpuid_leafs(struct cpuinfo_x86 *c)
 	if (boot_cpu_data.x86_vendor != X86_VENDOR_INTEL)
 		return;
 
-	if (c->x86_vfm < INTEL_PENTIUM_M_DOTHAN)
+	/* k1om (family 11) has no MSR_IA32_MISC_ENABLE */
+	if (c->x86_vfm < INTEL_PENTIUM_M_DOTHAN || c->x86 == 11)
 		return;
 
 	/*
@@ -203,7 +204,8 @@ static void early_init_intel(struct cpuinfo_x86 *c)
 {
 	u64 misc_enable;
 
-	if (c->x86 >= 6 && !cpu_has(c, X86_FEATURE_IA64))
+	/* k1om (family 11) has no MSR_IA32_UCODE_REV; the access #GPs */
+	if (c->x86 >= 6 && c->x86 != 11 && !cpu_has(c, X86_FEATURE_IA64))
 		c->microcode = intel_get_microcode_revision();
 
 	/* Now if any of them are set, check the blacklist and clear the lot */
@@ -300,7 +302,7 @@ static void early_init_intel(struct cpuinfo_x86 *c)
 	 * Adhere to the preference and program the Linux-defined fast
 	 * string flag and enhanced fast string capabilities accordingly.
 	 */
-	if (c->x86_vfm >= INTEL_PENTIUM_M_DOTHAN) {
+	if (c->x86_vfm >= INTEL_PENTIUM_M_DOTHAN && c->x86 != 11) {	/* k1om: no MISC_ENABLE */
 		rdmsrq(MSR_IA32_MISC_ENABLE, misc_enable);
 		if (misc_enable & MSR_IA32_MISC_ENABLE_FAST_STRING) {
 			/* X86_FEATURE_ERMS is set based on CPUID */
@@ -575,6 +577,11 @@ static void init_intel(struct cpuinfo_x86 *c)
 #ifdef CONFIG_X86_64
 	if (c->x86 == 15)
 		c->x86_cache_alignment = c->x86_clflush_size * 2;
+#ifdef CONFIG_MK1OM
+	/* De-select rep string ops microcode for K1OM */
+	clear_cpu_cap(c, X86_FEATURE_REP_GOOD);
+#endif
+
 #else
 	/*
 	 * Names for the Pentium II/Celeron processors
