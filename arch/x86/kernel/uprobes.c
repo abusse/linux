@@ -20,6 +20,12 @@
 #include <asm/mmu_context.h>
 #include <asm/nops.h>
 
+#ifdef CONFIG_X86_EARLYMIC
+#define UPROBE_TRAMP_ALIGN	"4096"	/* binutils 2.22 rejects the UL suffix of __stringify(PAGE_SIZE) */
+#else
+#define UPROBE_TRAMP_ALIGN	__stringify(PAGE_SIZE)
+#endif
+
 /* Post-execution fixups. */
 
 /* Adjust IP back to vicinity of actual insn */
@@ -881,7 +887,7 @@ sigill:
 
 asm (
 	".pushsection .rodata\n"
-	".balign " __stringify(PAGE_SIZE) "\n"
+	".balign " UPROBE_TRAMP_ALIGN "\n"
 	"uprobe_trampoline_entry:\n"
 	"push %rcx\n"
 	"push %r11\n"
@@ -893,7 +899,7 @@ asm (
 	"pop %rcx\n"
 	"ret\n"
 	"int3\n"
-	".balign " __stringify(PAGE_SIZE) "\n"
+	".balign " UPROBE_TRAMP_ALIGN "\n"
 	".popsection\n"
 );
 

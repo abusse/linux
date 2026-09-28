@@ -749,7 +749,11 @@ SYM_FUNC_START(asm_load_gs_index)
 .Lgs_change:
 	ANNOTATE_NOENDBR // error_entry
 	movl	%edi, %gs
+#ifdef CONFIG_X86_EARLYMIC
+2:
+#else
 2:	ALTERNATIVE "", "mfence", X86_BUG_SWAPGS_FENCE
+#endif
 	swapgs
 	FRAME_END
 	RET
@@ -1562,7 +1566,10 @@ SYM_FUNC_START(clear_bhb_loop)
 	sub	$1, %ecx
 	jnz	1b
 .Lret2:	RET
-5:	lfence
+5:
+#ifndef CONFIG_X86_EARLYMIC	/* never patched in on KNC; no lfence in the k1om assembler */
+	lfence
+#endif
 	pop	%rbp
 	RET
 SYM_FUNC_END(clear_bhb_loop)

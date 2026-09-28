@@ -21,6 +21,13 @@ extern void x86_gsbase_write_task(struct task_struct *task, unsigned long gsbase
 
 /* Must be protected by X86_FEATURE_FSGSBASE check. */
 
+#ifdef CONFIG_X86_EARLYMIC
+/* no FSGSBASE on KNC (and no such mnemonics in the k1om assembler); never reached */
+static __always_inline unsigned long rdfsbase(void) { return 0; }
+static __always_inline unsigned long rdgsbase(void) { return 0; }
+static __always_inline void wrfsbase(unsigned long fsbase) { }
+static __always_inline void wrgsbase(unsigned long gsbase) { }
+#else
 static __always_inline unsigned long rdfsbase(void)
 {
 	unsigned long fsbase;
@@ -48,6 +55,7 @@ static __always_inline void wrgsbase(unsigned long gsbase)
 {
 	asm volatile("wrgsbase %0" :: "r" (gsbase) : "memory");
 }
+#endif
 
 #include <asm/cpufeature.h>
 

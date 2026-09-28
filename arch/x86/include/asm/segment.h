@@ -255,7 +255,11 @@ static inline void vdso_read_cpunode(unsigned *cpu, unsigned *node)
 	 * If RDPID is available, use it.
 	 */
 	alternative_io ("lsl %[seg],%k[p]",
+#ifdef CONFIG_X86_EARLYMIC
+			".byte 0xf3,0x0f,0xc7,0xf8",	/* rdpid %rax: never patched in on KNC */
+#else
 			"rdpid %[p]",
+#endif
 			X86_FEATURE_RDPID,
 			[p] "=r" (p), [seg] "r" (__CPUNODE_SEG));
 

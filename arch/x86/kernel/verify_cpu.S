@@ -30,6 +30,12 @@
 
 #include <asm/cpufeatures.h>
 #include <asm/cpufeaturemasks.h>
+#ifdef CONFIG_X86_EARLYMIC	/* never run on KNC; the U-suffixed masks do not assemble with binutils 2.22 */
+#undef REQUIRED_MASK0
+#define REQUIRED_MASK0	0
+#undef REQUIRED_MASK1
+#define REQUIRED_MASK1	0
+#endif
 #include <asm/msr-index.h>
 
 #define SSE_MASK	\

@@ -377,8 +377,8 @@ do {									\
 	__typeof__(*(_ptr)) __new = (_new);				\
 	asm_goto_output("\n"						\
 		     "1: " LOCK_PREFIX "cmpxchg"itype" %[new], %[ptr]\n"\
-		     _ASM_EXTABLE_UA(1b, %l[label])			\
-		     : "=@ccz" (success),				\
+		     _ASM_EXTABLE_UA(1b, %l[label]) CC_SET(z)			\
+		     : CC_OUT(z) (success),				\
 		       [ptr] "+m" (*_ptr),				\
 		       [old] "+a" (__old)				\
 		     : [new] ltype (__new)				\
@@ -396,8 +396,8 @@ do {									\
 	__typeof__(*(_ptr)) __new = (_new);				\
 	asm_goto_output("\n"						\
 		     "1: " LOCK_PREFIX "cmpxchg8b %[ptr]\n"		\
-		     _ASM_EXTABLE_UA(1b, %l[label])			\
-		     : "=@ccz" (success),				\
+		     _ASM_EXTABLE_UA(1b, %l[label]) CC_SET(z)			\
+		     : CC_OUT(z) (success),				\
 		       "+A" (__old),					\
 		       [ptr] "+m" (*_ptr)				\
 		     : "b" ((u32)__new),				\
@@ -419,8 +419,8 @@ do {									\
 		     "1: " LOCK_PREFIX "cmpxchg"itype" %[new], %[ptr]\n"\
 		     "2:\n"						\
 		     _ASM_EXTABLE_TYPE_REG(1b, 2b, EX_TYPE_EFAULT_REG,	\
-					   %[errout])			\
-		     : "=@ccz" (success),				\
+					   %[errout]) CC_SET(z)			\
+		     : CC_OUT(z) (success),				\
 		       [errout] "+r" (__err),				\
 		       [ptr] "+m" (*_ptr),				\
 		       [old] "+a" (__old)				\

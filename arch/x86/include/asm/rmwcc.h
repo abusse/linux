@@ -9,8 +9,8 @@
 #define __GEN_RMWcc(fullop, _var, cc, clobbers, ...)			\
 ({									\
 	bool c;								\
-	asm_inline volatile (fullop					\
-			: [var] "+m" (_var), "=@cc" #cc (c)		\
+	asm_inline volatile (fullop CC_SET(cc)				\
+			: [var] "+m" (_var), CC_OUT(cc) (c)		\
 			: __VA_ARGS__ : clobbers);			\
 	c;								\
 })

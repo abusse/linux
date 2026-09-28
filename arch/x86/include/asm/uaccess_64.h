@@ -64,11 +64,22 @@ static inline unsigned long __untagged_addr_remote(struct mm_struct *mm,
 static inline void __user *mask_user_address(const void __user *ptr)
 {
 	void __user *ret;
+#ifdef CONFIG_X86_EARLYMIC
+	/* no cmov on KNC */
+	asm("cmp %1,%0\n\t"
+	    "jbe 1f\n\t"
+	    "mov %1,%0\n"
+	    "1:"
+		:"=r" (ret)
+		:"r" (runtime_const_ptr(USER_PTR_MAX)),
+		 "0" (ptr) : "cc");
+#else
 	asm("cmp %1,%0\n\t"
 	    "cmova %1,%0"
 		:"=r" (ret)
 		:"r" (runtime_const_ptr(USER_PTR_MAX)),
 		 "0" (ptr));
+#endif
 	return ret;
 }
 #define masked_user_access_begin(x) ({				\

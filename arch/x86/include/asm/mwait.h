@@ -2,6 +2,12 @@
 #ifndef _ASM_X86_MWAIT_H
 #define _ASM_X86_MWAIT_H
 
+#ifdef CONFIG_X86_EARLYMIC
+#define MIC_INSN(mnemonic, bytes)	bytes	/* k1om assembler lacks the mnemonic */
+#else
+#define MIC_INSN(mnemonic, bytes)	mnemonic
+#endif
+
 #include <linux/sched.h>
 #include <linux/sched/idle.h>
 
@@ -31,12 +37,12 @@ static __always_inline void __monitor(const void *eax, u32 ecx, u32 edx)
 	 * Use the instruction mnemonic with implicit operands, as the LLVM
 	 * assembler fails to assemble the mnemonic with explicit operands:
 	 */
-	asm volatile("monitor" :: "a" (eax), "c" (ecx), "d" (edx));
+	asm volatile(MIC_INSN("monitor", ".byte 0x0f, 0x01, 0xc8") :: "a" (eax), "c" (ecx), "d" (edx));
 }
 
 static __always_inline void __monitorx(const void *eax, u32 ecx, u32 edx)
 {
-	asm volatile("monitorx" :: "a" (eax), "c" (ecx), "d"(edx));
+	asm volatile(MIC_INSN("monitorx", ".byte 0x0f, 0x01, 0xfa") :: "a" (eax), "c" (ecx), "d"(edx));
 }
 
 static __always_inline void __mwait(u32 eax, u32 ecx)
@@ -45,7 +51,7 @@ static __always_inline void __mwait(u32 eax, u32 ecx)
 	 * Use the instruction mnemonic with implicit operands, as the LLVM
 	 * assembler fails to assemble the mnemonic with explicit operands:
 	 */
-	asm volatile("mwait" :: "a" (eax), "c" (ecx));
+	asm volatile(MIC_INSN("mwait", ".byte 0x0f, 0x01, 0xc9") :: "a" (eax), "c" (ecx));
 }
 
 /*
@@ -78,7 +84,7 @@ static __always_inline void __mwaitx(u32 eax, u32 ebx, u32 ecx)
 {
 	/* No need for TSA buffer clearing on AMD */
 
-	asm volatile("mwaitx" :: "a" (eax), "b" (ebx), "c" (ecx));
+	asm volatile(MIC_INSN("mwaitx", ".byte 0x0f, 0x01, 0xfb") :: "a" (eax), "b" (ebx), "c" (ecx));
 }
 
 /*
@@ -93,7 +99,7 @@ static __always_inline void __mwaitx(u32 eax, u32 ebx, u32 ecx)
 static __always_inline void __sti_mwait(u32 eax, u32 ecx)
 {
 
-	asm volatile("sti; mwait" :: "a" (eax), "c" (ecx));
+	asm volatile(MIC_INSN("sti; mwait", "sti; .byte 0x0f, 0x01, 0xc9") :: "a" (eax), "c" (ecx));
 }
 
 /*

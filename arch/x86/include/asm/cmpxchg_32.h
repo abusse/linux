@@ -45,8 +45,8 @@ static __always_inline u64 __cmpxchg64_local(volatile u64 *ptr, u64 old, u64 new
 			   n = { .full = (_new), };			\
 	bool ret;							\
 									\
-	asm_inline volatile(_lock "cmpxchg8b %[ptr]"			\
-		     : "=@ccz" (ret),					\
+	asm_inline volatile(_lock "cmpxchg8b %[ptr]" CC_SET(z)			\
+		     : CC_OUT(z) (ret),					\
 		       [ptr] "+m" (*(_ptr)),				\
 		       "+a" (o.low), "+d" (o.high)			\
 		     : "b" (n.low), "c" (n.high)			\
@@ -123,8 +123,8 @@ static __always_inline u64 arch_cmpxchg64_local(volatile u64 *ptr, u64 old, u64 
 	asm_inline volatile(						\
 		ALTERNATIVE(_lock_loc					\
 			    "call cmpxchg8b_emu",			\
-			    _lock "cmpxchg8b %a[ptr]", X86_FEATURE_CX8) \
-		: ALT_OUTPUT_SP("=@ccz" (ret),				\
+			    _lock "cmpxchg8b %a[ptr]", X86_FEATURE_CX8) CC_SET(z) \
+		: ALT_OUTPUT_SP(CC_OUT(z) (ret),				\
 				"+a" (o.low), "+d" (o.high))		\
 		: "b" (n.low), "c" (n.high),				\
 		  [ptr] "S" (_ptr)					\

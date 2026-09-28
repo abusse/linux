@@ -10,7 +10,12 @@
 /* PAUSE is a good thing to insert into busy-wait loops. */
 static __always_inline void native_pause(void)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	/* no pause; approximate with delay */
+	asm volatile("delay %0" :: "r" (1000) : "memory");
+#else
 	asm volatile("pause" ::: "memory");
+#endif
 }
 
 static __always_inline void cpu_relax(void)

@@ -34,7 +34,7 @@ config CRYPTO_LIB_BLAKE2S_ARCH
 	bool
 	depends on !UML
 	default y if ARM
-	default y if X86_64
+	default y if X86_64 && !X86_EARLYMIC
 
 config CRYPTO_LIB_CHACHA
 	tristate
@@ -52,7 +52,7 @@ config CRYPTO_LIB_CHACHA_ARCH
 	default y if PPC64 && CPU_LITTLE_ENDIAN && VSX
 	default y if RISCV && 64BIT && RISCV_ISA_V && TOOLCHAIN_HAS_VECTOR_CRYPTO
 	default y if S390
-	default y if X86_64
+	default y if X86_64 && !X86_EARLYMIC
 
 config CRYPTO_LIB_CURVE25519
 	tristate
@@ -66,7 +66,7 @@ config CRYPTO_LIB_CURVE25519_ARCH
 	depends on CRYPTO_LIB_CURVE25519 && !UML && !KMSAN
 	default y if ARM && KERNEL_MODE_NEON && !CPU_BIG_ENDIAN
 	default y if PPC64 && CPU_LITTLE_ENDIAN
-	default y if X86_64
+	default y if X86_64 && !X86_EARLYMIC
 
 config CRYPTO_LIB_CURVE25519_GENERIC
 	bool
@@ -104,7 +104,7 @@ config CRYPTO_LIB_POLY1305_ARCH
 	# The PPC64 code needs to be fixed to work in softirq context.
 	default y if PPC64 && CPU_LITTLE_ENDIAN && VSX && BROKEN
 	default y if RISCV
-	default y if X86_64
+	default y if X86_64 && !X86_EARLYMIC
 
 # This symbol controls the inclusion of the Poly1305 generic code.  This differs
 # from most of the other algorithms, which handle the generic code
@@ -145,7 +145,7 @@ config CRYPTO_LIB_SHA1_ARCH
 	default y if PPC
 	default y if S390
 	default y if SPARC64
-	default y if X86_64
+	default y if X86_64 && !X86_EARLYMIC
 
 config CRYPTO_LIB_SHA256
 	tristate
@@ -164,7 +164,7 @@ config CRYPTO_LIB_SHA256_ARCH
 	default y if RISCV && 64BIT && RISCV_ISA_V && TOOLCHAIN_HAS_VECTOR_CRYPTO
 	default y if S390
 	default y if SPARC64
-	default y if X86_64
+	default y if X86_64 && !X86_EARLYMIC
 
 config CRYPTO_LIB_SHA512
 	tristate
@@ -182,7 +182,7 @@ config CRYPTO_LIB_SHA512_ARCH
 	default y if RISCV && 64BIT && RISCV_ISA_V && TOOLCHAIN_HAS_VECTOR_CRYPTO
 	default y if S390
 	default y if SPARC64
-	default y if X86_64
+	default y if X86_64 && !X86_EARLYMIC
 
 config CRYPTO_LIB_SM3
 	tristate

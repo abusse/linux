@@ -36,6 +36,13 @@ static __always_inline u64 rdtsc(void)
  * be impossible to observe non-monotonic rdtsc_unordered() behavior
  * across multiple CPUs as long as the TSC is synced.
  */
+#ifdef CONFIG_X86_EARLYMIC
+/* in-order core; the assembler has neither lfence nor rdtscp */
+static __always_inline u64 rdtsc_ordered(void)
+{
+	return rdtsc();
+}
+#else
 static __always_inline u64 rdtsc_ordered(void)
 {
 	EAX_EDX_DECLARE_ARGS(val, low, high);
@@ -63,6 +70,7 @@ static __always_inline u64 rdtsc_ordered(void)
 
 	return EAX_EDX_VAL(val, low, high);
 }
+#endif
 
 /*
  * Standard way to access the cycle counter.

@@ -33,6 +33,7 @@ union __u128_halves {
 	};
 };
 
+#ifndef CONFIG_MK1OM	/* k1om lacks CMPXCHG16B */
 #define __arch_cmpxchg128(_ptr, _old, _new, _lock)			\
 ({									\
 	union __u128_halves o = { .full = (_old), },			\
@@ -65,8 +66,8 @@ static __always_inline u128 arch_cmpxchg128_local(volatile u128 *ptr, u128 old, 
 			    n = { .full = (_new), };			\
 	bool ret;							\
 									\
-	asm_inline volatile(_lock "cmpxchg16b %[ptr]"			\
-		     : "=@ccz" (ret),					\
+	asm_inline volatile(_lock "cmpxchg16b %[ptr]" CC_SET(z)			\
+		     : CC_OUT(z) (ret),					\
 		       [ptr] "+m" (*(_ptr)),				\
 		       "+a" (o.low), "+d" (o.high)			\
 		     : "b" (n.low), "c" (n.high)			\
@@ -91,5 +92,6 @@ static __always_inline bool arch_try_cmpxchg128_local(volatile u128 *ptr, u128 *
 #define arch_try_cmpxchg128_local arch_try_cmpxchg128_local
 
 #define system_has_cmpxchg128()		boot_cpu_has(X86_FEATURE_CX16)
+#endif /* !CONFIG_MK1OM */
 
 #endif /* _ASM_X86_CMPXCHG_64_H */

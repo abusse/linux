@@ -14,13 +14,13 @@ fi
 
 case "$1" in
 binutils)
-	echo 2.30.0
+	echo 2.22.0	# k1om binutils is 2.22.52 (MPSS 3.8.6)
 	;;
 gcc)
 	if [ "$ARCH" = parisc64 ]; then
 		echo 12.0.0
 	else
-		echo 8.1.0
+		echo 5.1.0	# k1om gcc is 5.1.1 (MPSS 3.8.6)
 	fi
 	;;
 llvm)
@@ -34,7 +34,7 @@ rustc)
 	echo 1.78.0
 	;;
 bindgen)
-	echo 0.65.1
+	echo 0.56.0
 	;;
 *)
 	echo "$1: unknown tool" >&2

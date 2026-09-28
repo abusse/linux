@@ -2,6 +2,12 @@
 #ifndef _ASM_X86_SPECIAL_INSNS_H
 #define _ASM_X86_SPECIAL_INSNS_H
 
+#ifdef CONFIG_X86_EARLYMIC
+#define MIC_INSN(mnemonic, bytes)	bytes	/* k1om assembler lacks the mnemonic; never patched in */
+#else
+#define MIC_INSN(mnemonic, bytes)	mnemonic
+#endif
+
 #ifdef __KERNEL__
 #include <asm/nops.h>
 #include <asm/processor-flags.h>
@@ -190,7 +196,7 @@ static __always_inline void clflush(volatile void *__p)
 static inline void clflushopt(volatile void *__p)
 {
 	alternative_io("ds clflush %0",
-		       "clflushopt %0", X86_FEATURE_CLFLUSHOPT,
+		       MIC_INSN("clflushopt %0", "ds clflush %0"), X86_FEATURE_CLFLUSHOPT,
 		       "+m" (*(volatile char __force *)__p));
 }
 
@@ -200,8 +206,8 @@ static inline void clwb(volatile void *__p)
 
 	asm_inline volatile(ALTERNATIVE_2(
 		"ds clflush %0",
-		"clflushopt %0", X86_FEATURE_CLFLUSHOPT,
-		"clwb %0", X86_FEATURE_CLWB)
+		MIC_INSN("clflushopt %0", "ds clflush %0"), X86_FEATURE_CLFLUSHOPT,
+		MIC_INSN("clwb %0", "ds clflush %0"), X86_FEATURE_CLWB)
 		: "+m" (*p));
 }
 
@@ -283,8 +289,8 @@ static inline int enqcmds(void __iomem *dst, const void *src)
 	 *
 	 * See movdir64b()'s comment on operand specification.
 	 */
-	asm volatile(".byte 0xf3, 0x0f, 0x38, 0xf8, 0x02, 0x66, 0x90"
-		     : "=@ccz" (zf), "+m" (*__dst)
+	asm volatile(".byte 0xf3, 0x0f, 0x38, 0xf8, 0x02, 0x66, 0x90" CC_SET(z)
+		     : CC_OUT(z) (zf), "+m" (*__dst)
 		     : "m" (*__src), "a" (__dst), "d" (__src));
 
 	/* Submission failure is indicated via EFLAGS.ZF=1 */

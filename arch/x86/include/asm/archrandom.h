@@ -17,13 +17,18 @@
 
 /* Unconditional execution of RDRAND and RDSEED */
 
+#ifdef CONFIG_X86_EARLYMIC
+/* no RDRAND/RDSEED on KNC (and no such mnemonics in the k1om assembler) */
+static inline bool __must_check rdrand_long(unsigned long *v) { return false; }
+static inline bool __must_check rdseed_long(unsigned long *v) { return false; }
+#else
 static inline bool __must_check rdrand_long(unsigned long *v)
 {
 	bool ok;
 	unsigned int retry = RDRAND_RETRY_LOOPS;
 	do {
-		asm volatile("rdrand %[out]"
-			     : "=@ccc" (ok), [out] "=r" (*v));
+		asm volatile("rdrand %[out]" CC_SET(c)
+			     : CC_OUT(c) (ok), [out] "=r" (*v));
 		if (ok)
 			return true;
 	} while (--retry);
@@ -33,10 +38,12 @@ static inline bool __must_check rdrand_long(unsigned long *v)
 static inline bool __must_check rdseed_long(unsigned long *v)
 {
 	bool ok;
-	asm volatile("rdseed %[out]"
-		     : "=@ccc" (ok), [out] "=r" (*v));
+	asm volatile("rdseed %[out]" CC_SET(c)
+		     : CC_OUT(c) (ok), [out] "=r" (*v));
 	return ok;
 }
+
+#endif
 
 /*
  * These are the generic interfaces; they must not be declared if the

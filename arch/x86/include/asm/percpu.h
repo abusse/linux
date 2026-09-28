@@ -308,8 +308,8 @@ do {									\
 	__pcpu_type_##size pco_new__ = __pcpu_cast_##size(_nval);	\
 									\
 	asm qual (__pcpu_op_##size("cmpxchg") "%[nval], "		\
-		  __percpu_arg([var])					\
-		  : "=@ccz" (success),					\
+		  __percpu_arg([var]) CC_SET(z)					\
+		  : CC_OUT(z) (success),					\
 		    [oval] "+a" (pco_old__),				\
 		    [var] "+m" (__my_cpu_var(_var))			\
 		  : [nval] __pcpu_reg_##size(, pco_new__)		\
@@ -365,8 +365,8 @@ do {									\
 									\
 	asm_inline qual (						\
 		ALTERNATIVE("call this_cpu_cmpxchg8b_emu",		\
-			    "cmpxchg8b " __percpu_arg([var]), X86_FEATURE_CX8) \
-		: ALT_OUTPUT_SP("=@ccz" (success),			\
+			    "cmpxchg8b " __percpu_arg([var]), X86_FEATURE_CX8) CC_SET(z) \
+		: ALT_OUTPUT_SP(CC_OUT(z) (success),			\
 				[var] "+m" (__my_cpu_var(_var)),	\
 				"+a" (old__.low), "+d" (old__.high))	\
 		: "b" (new__.low), "c" (new__.high),			\
@@ -414,8 +414,10 @@ do {									\
 	old__.var;							\
 })
 
+#ifndef CONFIG_MK1OM	/* k1om lacks CMPXCHG16B */
 #define raw_cpu_cmpxchg128(pcp, oval, nval)		percpu_cmpxchg128_op(16,         , pcp, oval, nval)
 #define this_cpu_cmpxchg128(pcp, oval, nval)		percpu_cmpxchg128_op(16, volatile, pcp, oval, nval)
+#endif
 
 #define percpu_try_cmpxchg128_op(size, qual, _var, _ovalp, _nval)	\
 ({									\
@@ -433,8 +435,8 @@ do {									\
 									\
 	asm_inline qual (						\
 		ALTERNATIVE("call this_cpu_cmpxchg16b_emu",		\
-			    "cmpxchg16b " __percpu_arg([var]), X86_FEATURE_CX16) \
-		: ALT_OUTPUT_SP("=@ccz" (success),			\
+			    "cmpxchg16b " __percpu_arg([var]), X86_FEATURE_CX16) CC_SET(z) \
+		: ALT_OUTPUT_SP(CC_OUT(z) (success),			\
 				[var] "+m" (__my_cpu_var(_var)),	\
 				"+a" (old__.low), "+d" (old__.high))	\
 		: "b" (new__.low), "c" (new__.high),			\
@@ -446,8 +448,10 @@ do {									\
 	likely(success);						\
 })
 
+#ifndef CONFIG_MK1OM	/* k1om lacks CMPXCHG16B */
 #define raw_cpu_try_cmpxchg128(pcp, ovalp, nval)	percpu_try_cmpxchg128_op(16,         , pcp, ovalp, nval)
 #define this_cpu_try_cmpxchg128(pcp, ovalp, nval)	percpu_try_cmpxchg128_op(16, volatile, pcp, ovalp, nval)
+#endif
 
 #endif /* CONFIG_X86_64 */
 
@@ -581,8 +585,8 @@ do {									\
 ({									\
 	bool oldbit;							\
 									\
-	asm volatile("btl %[nr], " __percpu_arg([var])			\
-		     : "=@ccc" (oldbit)					\
+	asm volatile("btl %[nr], " __percpu_arg([var]) CC_SET(c)			\
+		     : CC_OUT(c) (oldbit)					\
 		     : [var] "m" (__my_cpu_var(_var)),			\
 		       [nr] "rI" (_nr));				\
 	oldbit;								\

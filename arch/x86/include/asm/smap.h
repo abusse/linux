@@ -13,6 +13,22 @@
 #include <asm/cpufeatures.h>
 #include <asm/alternative.h>
 
+#ifdef CONFIG_X86_EARLYMIC
+/* no SMAP on KNC and no clac/stac in the k1om assembler */
+#ifdef __ASSEMBLER__
+#define ASM_CLAC
+#define ASM_STAC
+#else
+static __always_inline void clac(void) { }
+static __always_inline void stac(void) { }
+static __always_inline unsigned long smap_save(void) { return 0; }
+static __always_inline void smap_restore(unsigned long flags) { }
+#define ASM_CLAC ""
+#define ASM_STAC ""
+#define ASM_CLAC_UNSAFE ""
+#define ASM_STAC_UNSAFE ""
+#endif
+#else /* CONFIG_X86_EARLYMIC */
 #ifdef __ASSEMBLER__
 
 #define ASM_CLAC \
@@ -69,5 +85,6 @@ static __always_inline void smap_restore(unsigned long flags)
 	ALTERNATIVE("", ANNOTATE_IGNORE_ALTERNATIVE "stac", X86_FEATURE_SMAP)
 
 #endif /* __ASSEMBLER__ */
+#endif /* CONFIG_X86_EARLYMIC */
 
 #endif /* _ASM_X86_SMAP_H */

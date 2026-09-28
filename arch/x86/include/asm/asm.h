@@ -113,6 +113,20 @@
 
 #endif
 
+/*
+ * Macros to generate condition code outputs from inline assembly. The output
+ * operand must be type "bool". The k1om gcc 5.1 accepts the "=@cc" flag-output
+ * constraint but miscompiles it (and does not define __GCC_ASM_FLAG_OUTPUTS__),
+ * so keep the setcc fallback that upstream dropped when it required gcc >= 8.
+ */
+#ifdef __GCC_ASM_FLAG_OUTPUTS__
+# define CC_SET(c) "\n\t/* output condition code " #c "*/\n"
+# define CC_OUT(c) "=@cc" #c
+#else
+# define CC_SET(c) "\n\tset" #c " %[_cc_" #c "]\n"
+# define CC_OUT(c) [_cc_ ## c] "=qm"
+#endif
+
 #ifndef __ASSEMBLER__
 static __always_inline __pure void *rip_rel_ptr(void *p)
 {

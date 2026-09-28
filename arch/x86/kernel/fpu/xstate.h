@@ -110,12 +110,22 @@ static inline int update_pkru_in_sigframe(struct xregs_state __user *buf, u32 pk
 #define REX_SUFFIX
 #endif
 
+#ifdef CONFIG_X86_EARLYMIC
+/* no XSAVE on KNC and no such mnemonics in the k1om assembler; these paths are never reached */
+#define XSAVE		"ud2 # xsave %[xa]"
+#define XSAVEOPT	"ud2 # xsaveopt %[xa]"
+#define XSAVEC		"ud2 # xsavec %[xa]"
+#define XSAVES		"ud2 # xsaves %[xa]"
+#define XRSTOR		"ud2 # xrstor %[xa]"
+#define XRSTORS		"ud2 # xrstors %[xa]"
+#else
 #define XSAVE		"xsave" REX_SUFFIX " %[xa]"
 #define XSAVEOPT	"xsaveopt" REX_SUFFIX " %[xa]"
 #define XSAVEC		"xsavec" REX_SUFFIX " %[xa]"
 #define XSAVES		"xsaves" REX_SUFFIX " %[xa]"
 #define XRSTOR		"xrstor" REX_SUFFIX " %[xa]"
 #define XRSTORS		"xrstors" REX_SUFFIX " %[xa]"
+#endif
 
 /*
  * After this @err contains 0 on success or the trap number when the

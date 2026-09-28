@@ -37,13 +37,23 @@
 #include <asm/smap.h>
 #include <asm/runtime-const.h>
 
+#ifdef CONFIG_X86_EARLYMIC
+#define ASM_BARRIER_NOSPEC	/* in-order core, no lfence in the assembler */
+#else
 #define ASM_BARRIER_NOSPEC ALTERNATIVE "", "lfence", X86_FEATURE_LFENCE_RDTSC
+#endif
 
 .macro check_range size:req
 .if IS_ENABLED(CONFIG_X86_64)
 	RUNTIME_CONST_PTR USER_PTR_MAX, rdx
 	cmp %rdx, %rax
+#ifdef CONFIG_X86_EARLYMIC	/* no cmov on KNC */
+	jbe .Lcr_\@
+	mov %rdx, %rax
+.Lcr_\@:
+#else
 	cmova %rdx, %rax
+#endif
 .else
 	cmp $TASK_SIZE_MAX-\size+1, %eax
 	jae .Lbad_get_user

@@ -32,8 +32,13 @@
 int memcmp(const void *s1, const void *s2, size_t len)
 {
 	bool diff;
-	asm("repe cmpsb"
-	    : "=@ccnz" (diff), "+D" (s1), "+S" (s2), "+c" (len));
+#ifdef __GCC_ASM_FLAG_OUTPUTS__
+	asm("repe cmpsb" CC_SET(nz)
+	    : CC_OUT(nz) (diff), "+D" (s1), "+S" (s2), "+c" (len));
+#else	/* gcc < 6 (k1om toolchain) */
+	asm("repe cmpsb\n\tsetnz %0"
+	    : "=qm" (diff), "+D" (s1), "+S" (s2), "+c" (len) : : "cc");
+#endif
 	return diff;
 }
 

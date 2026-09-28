@@ -165,6 +165,8 @@ else
 ifdef CONFIG_X86_NATIVE_CPU
         KBUILD_CFLAGS += -march=native
         KBUILD_RUSTFLAGS += -Ctarget-cpu=native
+else ifdef CONFIG_MK1OM
+        # the k1om gcc defaults to the KNC ISA; -march=x86-64 would enable cmov/SSE
 else
         KBUILD_CFLAGS += -march=x86-64 -mtune=generic
         KBUILD_RUSTFLAGS += -Ctarget-cpu=x86-64 -Ztune-cpu=generic
