@@ -1,4 +1,28 @@
 // SPDX-License-Identifier: GPL-2.0
+/* * Copyright (c) Intel Corporation (2011).
+*
+* Disclaimer: The codes contained in these modules may be specific to the
+* Intel Software Development Platform codenamed: Knights Ferry, and the 
+* Intel product codenamed: Knights Corner, and are not backward compatible 
+* with other Intel products. Additionally, Intel will NOT support the codes 
+* or instruction set in future products.
+*
+* Intel offers no warranty of any kind regarding the code.  This code is
+* licensed on an "AS IS" basis and Intel is not obligated to provide any support,
+* assistance, installation, training, or other services of any kind.  Intel is 
+* also not obligated to provide any updates, enhancements or extensions.  Intel 
+* specifically disclaims any warranty of merchantability, non-infringement, 
+* fitness for any particular purpose, and any other warranty.
+*
+* Further, Intel disclaims all liability of any kind, including but not
+* limited to liability for infringement of any proprietary rights, relating
+* to the use of the code, even if Intel is notified of the possibility of
+* such liability.  Except as expressly stated in an Intel license agreement
+* provided with this code and agreed upon with Intel, no license, express
+* or implied, by estoppel or otherwise, to any intellectual property rights
+* is granted herein.
+*/
+
 /*
  *	Intel IO-APIC support for multi-Pentium hosts.
  *
@@ -67,6 +91,9 @@
 #include <asm/apic.h>
 #include <asm/pgtable.h>
 #include <asm/x86_init.h>
+#ifdef CONFIG_X86_EARLYMIC
+#include <asm/mic_def.h>
+#endif
 
 #define	for_each_ioapic(idx)		\
 	for ((idx) = 0; (idx) < nr_ioapics; (idx)++)
@@ -125,7 +152,7 @@ int mpc_ioapic_id(int ioapic_idx)
 	return ioapics[ioapic_idx].mp_config.apicid;
 }
 
-unsigned int mpc_ioapic_addr(int ioapic_idx)
+unsigned long mpc_ioapic_addr(int ioapic_idx)
 {
 	return ioapics[ioapic_idx].mp_config.apicaddr;
 }
@@ -270,19 +297,29 @@ static inline void io_apic_eoi(unsigned int apic, unsigned int vector)
 
 unsigned int native_io_apic_read(unsigned int apic, unsigned int reg)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	volatile u32 *io_apic = (volatile u32 *) io_apic_base(apic);
+	return readl((void __iomem *)(io_apic + reg));
+#else
 	struct io_apic __iomem *io_apic = io_apic_base(apic);
 
 	writel(reg, &io_apic->index);
 	return readl(&io_apic->data);
+#endif
 }
 
 static void io_apic_write(unsigned int apic, unsigned int reg,
 			  unsigned int value)
 {
+#ifdef CONFIG_X86_EARLYMIC
+	volatile u32 *io_apic = (volatile u32 *) io_apic_base(apic);
+	writel(value, (void __iomem *)(io_apic + reg));
+#else
 	struct io_apic __iomem *io_apic = io_apic_base(apic);
 
 	writel(reg, &io_apic->index);
 	writel(value, &io_apic->data);
+#endif
 }
 
 static struct IO_APIC_route_entry __ioapic_read_entry(int apic, int pin)
@@ -1780,7 +1817,17 @@ static void ioapic_setup_msg_from_msi(struct irq_data *irq_data,
 	 * All other modes have bit 0-6 of dmar_index_0_14 cleared and the
 	 * topmost 8 bits are destination id bit 0-7 (entry::destid_0_7).
 	 */
+#ifdef CONFIG_X86_EARLYMIC
+	/*
+	 * No interrupt remapping on KNC, and its route entry keeps the
+	 * destination id in bits 32-39 (see IO_APIC_route_entry): copy the
+	 * destination by name instead of through the IR index overlay.
+	 */
+	entry->destid_0_7		= msg.arch_addr_lo.destid_0_7;
+	entry->virt_destid_8_14		= msg.arch_addr_lo.virt_destid_8_14;
+#else
 	entry->ir_index_0_14		= msg.arch_addr_lo.dmar_index_0_14;
+#endif
 }
 
 static void ioapic_configure_entry(struct irq_data *irqd)
@@ -2638,7 +2685,7 @@ static int bad_ioapic_register(int idx)
 	reg_02.raw = io_apic_read(idx, 2);
 
 	if (reg_00.raw == -1 && reg_01.raw == -1 && reg_02.raw == -1) {
-		pr_warn("I/O APIC 0x%x registers return all ones, skipping!\n",
+		pr_warn("I/O APIC 0x%lx registers return all ones, skipping!\n",
 			mpc_ioapic_addr(idx));
 		return 1;
 	}
@@ -2662,7 +2709,7 @@ static int find_free_ioapic_entry(void)
  * @gsi_base:	base of GSI associated with the IOAPIC
  * @cfg:	configuration information for the IOAPIC
  */
-int mp_register_ioapic(int id, u32 address, u32 gsi_base, struct ioapic_domain_cfg *cfg)
+int mp_register_ioapic(int id, u64 address, u32 gsi_base, struct ioapic_domain_cfg *cfg)
 {
 	bool hotplug = !!ioapic_initialized;
 	struct mp_ioapic_gsi *gsi_cfg;
@@ -2706,6 +2753,10 @@ int mp_register_ioapic(int id, u32 address, u32 gsi_base, struct ioapic_domain_c
 	 * and to prevent reprogramming of IOAPIC pins (PCI GSIs).
 	 */
 	entries = io_apic_get_redir_entries(idx);
+#ifdef CONFIG_X86_EARLYMIC
+	/* The version register under-reports: KNC routes 25 SBOX sources. */
+	entries = MIC_NUM_IOAPIC_ENTRIES;
+#endif
 	gsi_end = gsi_base + entries - 1;
 	for_each_ioapic(ioapic) {
 		gsi_cfg = mp_ioapic_gsi_routing(ioapic);
@@ -2739,15 +2790,19 @@ int mp_register_ioapic(int id, u32 address, u32 gsi_base, struct ioapic_domain_c
 		alloc_ioapic_saved_registers(idx);
 	}
 
+#ifdef CONFIG_X86_EARLYMIC
+	gsi_top = 0;
+#else
 	if (gsi_cfg->gsi_end >= gsi_top)
 		gsi_top = gsi_cfg->gsi_end + 1;
+#endif
 	if (nr_ioapics <= idx)
 		nr_ioapics = idx + 1;
 
 	/* Set nr_registers to mark entry present */
 	ioapics[idx].nr_registers = entries;
 
-	pr_info("IOAPIC[%d]: apic_id %d, version %d, address 0x%x, GSI %d-%d\n",
+	pr_info("IOAPIC[%d]: apic_id %d, version %d, address 0x%lx, GSI %d-%d\n",
 		idx, mpc_ioapic_id(idx), mpc_ioapic_ver(idx), mpc_ioapic_addr(idx),
 		gsi_cfg->gsi_base, gsi_cfg->gsi_end);
 

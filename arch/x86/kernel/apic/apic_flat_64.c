@@ -16,7 +16,15 @@
 
 static u32 physflat_get_apic_id(u32 x)
 {
-	return (x >> 24) & 0xFF;
+	unsigned int id;
+
+#ifdef CONFIG_X86_EARLYMIC
+	id = (((x) >> 23) & 0x1FFu);	/* MIC: 9-bit APIC id at bits 31:23 */
+#else
+	id = (((x)>>24) & 0xFFu);
+#endif
+
+	return id;
 }
 
 static int physflat_probe(void)

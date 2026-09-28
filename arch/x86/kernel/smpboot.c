@@ -169,6 +169,11 @@ static inline void smpboot_restore_warm_reset_vector(void)
 
 }
 
+#ifdef CONFIG_X86_EARLYMIC
+extern void disable_icache_snoop(void);
+extern void mic_smpt_init(void) __init;
+#endif
+
 /* Run the next set of setup steps for the upcoming CPU */
 static void ap_starting(void)
 {
@@ -279,6 +284,9 @@ static void notrace __noendbr start_secondary(void *unused)
 	fpu__init_cpu();
 	rcutree_report_cpu_starting(raw_smp_processor_id());
 	x86_cpuinit.early_percpu_clock_init();
+#ifdef CONFIG_X86_EARLYMIC
+	disable_icache_snoop();		/* we are an AP */
+#endif
 
 	ap_starting();
 
