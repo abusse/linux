@@ -178,7 +178,13 @@ else
         KBUILD_CFLAGS += $(cc_stack_align8)
 
 	# Use -mskip-rax-setup if supported.
+	# Not for k1om: the MPSS gcc's variadic prologue still tests %al and, if it
+	# is set, spills zmm0-7 through mask register k1 (no -mno-sse equivalent
+	# for the KNC vector unit). Without the RAX setup %al is garbage at every
+	# variadic call, so the kernel clobbers the user's k1 from interrupt context.
+	ifndef CONFIG_MK1OM
 	KBUILD_CFLAGS += -mskip-rax-setup
+	endif
 
 ifdef CONFIG_X86_NATIVE_CPU
         KBUILD_CFLAGS += -march=native
